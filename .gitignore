@@ -1,0 +1,6 @@
+.*.sw*
+*~
+*.so
+local/
+luce/
+luce.lua
