@@ -1,11 +1,18 @@
-This is a Lua binding for `Tox <https://tox.im/>`__, decentralised Instant Messaging.
+======
+LuaTox
+======
+---------------------
+A Lua binding for Tox
+---------------------
+
+This is a LuaTox, a Lua binding for `Tox <https://tox.im/>`__, a distributed, secure messenger with audio and video chat capabilities.
 
 This is alpha code.
-Tests are passing all OK but it hasn't been used for a real implemenation yet,
-so unknown bugs are highly expected.
 
-There's a known bug with toxAV: it's crashing on exit with pthreads.
-Lua 5.2 seems not affected by the bug, but lua 5.1 and luajit 2.0.X are.
+Tests are passing all OK but it hasn't been tested with a real implemenation yet,
+so bugs are highly expected.
 
-A Luce IHM is to be expected very soon.
+There's a known bug with toxAV: it's crashing on exit with pthreads. Annoying, but doesn't seem to affect the process itself.
+Lua 5.2 seems to be not affected by this bug though, but lua 5.1 and luajit 2.0.X are.
 
+A Luce IHM should come any time soon.
