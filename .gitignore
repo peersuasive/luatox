@@ -1,5 +1,6 @@
 .*.sw*
 *~
+*.o
 *.so
 local/
 luce/
