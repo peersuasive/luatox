@@ -25,11 +25,13 @@ LIBS2 = `pkg-config --libs libtoxav`
 
 OBJS1 = lua_tox.o lua_common.o
 OBJS2 = lua_toxav.o lua_common.o
+OBJS3 = lua_toxdns.o lua_common.o
 
 TARGET1 = tox.so
 TARGET2 = toxav.so
+TARGET3 = toxdns.so
 
-all: $(TARGET1) $(TARGET2)
+all: $(TARGET1) $(TARGET2) $(TARGET3)
 
 %.o: %.c
 	@echo "Compiling $@..."
@@ -45,14 +47,21 @@ $(TARGET2): $(OBJS2)
 	@$(LD) $(LDFLAGS) -shared -o $@ $(OBJS2) $(LIBS2)
 	@$(STRIP) $@
 
+$(TARGET3): $(OBJS3)
+	@echo "Linking $@..."
+	@$(LD) $(LDFLAGS) -shared -o $@ $(OBJS3) $(LIBS1)
+	@$(STRIP) $@
+
 test: all
 	@echo "Testing tox..."
 	@lua tests/test_tox.lua
 	@echo "Testing toxav..."
 	@lua tests/test_toxav.lua
+	@echo "Testing toxdns..."
+	@lua tests/test_toxdns.lua
 
 clean:
-	@$(RM) -f $(OBJS1) $(OBJS2)
+	@$(RM) -f $(OBJS1) $(OBJS2) $(OBJS3)
 
 extraclean: clean
-	@$(RM) -f $(TARGET1) $(TARGET2)
+	@$(RM) -f $(TARGET1) $(TARGET2) $(TARGET3)

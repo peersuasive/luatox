@@ -1,0 +1,25 @@
+#!/bin/bash
+
+host=${1:-utox.org}
+port=${2:-53}
+
+exec 3<>/dev/udp/${host}/${port}
+cat - >&3
+
+res=""
+i=0
+j=0
+str=""
+started=0
+pat=0
+while read -r -n1 -t 3 c
+do
+    [[ "$c" == = ]] && ((++pat>1)) && started=1
+    ((started)) || continue
+    ((j==0)) && ((++j)) && continue
+    echo -E -n "$c"
+    ((++j>87)) && break
+done < <(cat <&3)
+exec 3>&-
+
+((started)) && exit 0 || exit 1
