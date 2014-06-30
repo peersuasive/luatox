@@ -119,7 +119,7 @@ int pub_string_to_bin(const char *id, uint8_t *address) {
  *                        *
  **************************/
 
-void on_friend_request(Tox *tox, uint8_t *public_key, uint8_t *data, uint16_t length, void *_ltox) {
+void on_friend_request(Tox *tox, const uint8_t *public_key, const uint8_t *data, uint16_t length, void *_ltox) {
     LTox *ltox = (LTox*)_ltox;
     if(ltox->callbacks.friend_request) {
         lua_pushlstring(Ls, public_key, TOX_CLIENT_ID_SIZE);
