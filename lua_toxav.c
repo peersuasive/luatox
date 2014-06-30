@@ -67,6 +67,14 @@ static LToxAv *toLToxAv(lua_State* L, int index) {
     return lav;
 }
 
+static LTox *checkLTox(lua_State* L, int index) {
+    luaL_checktype(L, index, LUA_TUSERDATA);
+    LTox *ltox = (LTox*)luaL_checkudata(L, index, TOX_STR);
+    if(ltox->tox==NULL)
+        luaL_typerror(L, index, TOX_STR);
+    return ltox;
+}
+
 static LToxAv *pushToxAv(lua_State* L, Tox *tox, int32_t max_calls) {
     LToxAv *lav = (LToxAv*)lua_newuserdata(L, sizeof(LToxAv));
     lav->av = toxav_new(tox, max_calls);
@@ -814,8 +822,7 @@ static int lua_toxav_tostring(lua_State* L) {
 }
 
 int lua_toxav_new(lua_State* L) {
-    // TODO: udata check
-    LTox *ltox = (LTox*)lua_touserdata(L,1);
+    LTox *ltox = checkLTox(L,1);
     int32_t max_calls = luaL_checknumber(L,2);
     lua_settop(L,0);
     Tox *tox = ltox->tox;

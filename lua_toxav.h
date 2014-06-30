@@ -30,6 +30,7 @@
 #include "lauxlib.h"
 #include "lualib.h"
 
+#define TOX_STR "Tox"
 #define TOXAV_STR "ToxAv"
 
 typedef struct _callbacks_t {
