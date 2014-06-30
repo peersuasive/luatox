@@ -4,9 +4,9 @@
  *
  *  Copyright (C) 2014 Peersuasive Technologies All Rights Reserved.
  *
- *  This file is part of Luce.
+ *  This file is part of LuaTox.
  *
- *  Luce is free software: you can redistribute it and/or modify
+ *  LuaTox is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
  *  the Free Software Foundation, either version 3 of the License, or
  *  (at your option) any later version.
