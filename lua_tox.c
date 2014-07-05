@@ -122,8 +122,8 @@ int pub_string_to_bin(const char *id, uint8_t *address) {
 void on_friend_request(Tox *tox, const uint8_t *public_key, const uint8_t *data, uint16_t length, void *_ltox) {
     LTox *ltox = (LTox*)_ltox;
     if(ltox->callbacks.friend_request) {
-        lua_pushlstring(Ls, public_key, TOX_CLIENT_ID_SIZE);
-        lua_pushlstring(Ls, data, length);
+        lua_pushlstring(Ls, (const char*)public_key, TOX_CLIENT_ID_SIZE);
+        lua_pushlstring(Ls, (const char*)data, length);
         call_cb(Ls, ltox, "friend_request", 0, 2);
     }
 }
@@ -137,11 +137,11 @@ int lua_tox_callback_friend_request(lua_State* L) {
     return 0;
 }
 
-void on_friend_message(Tox *tox, int32_t friendnumber, uint8_t *message, uint16_t length, void *_ltox) {
+void on_friend_message(Tox *tox, int32_t friendnumber, const uint8_t *message, uint16_t length, void *_ltox) {
     LTox *ltox = (LTox*)_ltox;
     if(ltox->callbacks.friend_message) {
         lua_pushnumber(Ls, friendnumber);
-        lua_pushlstring(Ls, message, length);
+        lua_pushlstring(Ls, (const char*)message, length);
         call_cb(Ls, ltox, "friend_message", 0, 2);
     }
 }
@@ -155,11 +155,11 @@ int lua_tox_callback_friend_message(lua_State* L) {
     return 0;
 }
 
-void on_friend_action(Tox *tox, int32_t friendnumber, uint8_t *action, uint16_t length, void *_ltox) {
+void on_friend_action(Tox *tox, int32_t friendnumber, const uint8_t *action, uint16_t length, void *_ltox) {
     LTox *ltox = (LTox*)_ltox;
     if(ltox->callbacks.friend_action) {
         lua_pushnumber(Ls, friendnumber);
-        lua_pushlstring(Ls, action, length);
+        lua_pushlstring(Ls, (const char*)action, length);
         call_cb(Ls, ltox, "friend_action", 0, 2);
     }
 }
@@ -173,11 +173,11 @@ int lua_tox_callback_friend_action(lua_State* L) {
     return 0;
 }
 
-void on_name_change(Tox *tox, int32_t friendnumber, uint8_t *string, uint16_t length, void *_ltox) {
+void on_name_change(Tox *tox, int32_t friendnumber, const uint8_t *string, uint16_t length, void *_ltox) {
     LTox *ltox = (LTox*)_ltox;
     if(ltox->callbacks.name_change) {
         lua_pushnumber(Ls, friendnumber);
-        lua_pushlstring(Ls, string, length);
+        lua_pushlstring(Ls, (const char*)string, length);
         call_cb(Ls, ltox, "name_change",0,2);
     }
 }
@@ -191,11 +191,11 @@ int lua_tox_callback_name_change(lua_State* L) {
     return 0;
 }
 
-void on_status_message(Tox *tox, int32_t friendnumber, uint8_t *string, uint16_t length, void *_ltox) {
+void on_status_message(Tox *tox, int32_t friendnumber, const uint8_t *string, uint16_t length, void *_ltox) {
     LTox *ltox = (LTox*)_ltox;
     if(ltox->callbacks.status_message) {
         lua_pushnumber(Ls, friendnumber);
-        lua_pushlstring(Ls, string, length);
+        lua_pushlstring(Ls, (const char*)string, length);
         call_cb(Ls, ltox, "status_message", 0, 2);
     }
 }
@@ -281,12 +281,12 @@ int lua_tox_callback_connection_status(lua_State* L) {
     return 0;
 }
 
-void on_group_invite(Tox *tox, int32_t friendnumber, uint8_t *group_pub_key, void *_ltox)
+void on_group_invite(Tox *tox, int32_t friendnumber, const uint8_t *group_pub_key, void *_ltox)
 {
     LTox *ltox = (LTox*)_ltox;
     if(ltox->callbacks.group_invite) {
         lua_pushnumber(Ls, friendnumber);
-        lua_pushlstring(Ls, group_pub_key, TOX_CLIENT_ID_SIZE);
+        lua_pushlstring(Ls, (const char*)group_pub_key, TOX_CLIENT_ID_SIZE);
         call_cb(Ls, ltox, "group_invite", 0, 2);
     }
 }
@@ -300,13 +300,13 @@ int lua_tox_callback_group_invite(lua_State* L) {
     return 0;
 }
 
-void on_group_message(Tox *tox, int groupnumber, int peernumber, uint8_t *message, uint16_t length, void *_ltox)
+void on_group_message(Tox *tox, int groupnumber, int peernumber, const uint8_t *message, uint16_t length, void *_ltox)
 {
     LTox *ltox = (LTox*)_ltox;
     if(ltox->callbacks.group_message) {
         lua_pushnumber(Ls, groupnumber);
         lua_pushnumber(Ls, peernumber);
-        lua_pushlstring(Ls, message, length);
+        lua_pushlstring(Ls, (const char*)message, length);
         call_cb(Ls, ltox, "group_message", 0, 3);
     }
 }
@@ -320,13 +320,13 @@ int lua_tox_callback_group_message(lua_State* L) {
     return 0;
 }
 
-void on_group_action(Tox *tox, int groupnumber, int peernumber, uint8_t *action, uint16_t length, void *_ltox) 
+void on_group_action(Tox *tox, int groupnumber, int peernumber, const uint8_t *action, uint16_t length, void *_ltox) 
 {
     LTox *ltox = (LTox*)_ltox;
     if(ltox->callbacks.group_action) {
         lua_pushnumber(Ls, groupnumber);
         lua_pushnumber(Ls, peernumber);
-        lua_pushlstring(Ls, action, length);
+        lua_pushlstring(Ls, (const char*)action, length);
         call_cb(Ls, ltox, "group_action", 0, 3);
     }
 }
@@ -361,14 +361,14 @@ int lua_tox_callback_group_namelist_change(lua_State* L) {
 }
 
 void on_file_send_request(Tox *tox, int32_t friendnumber, uint8_t filenumber, uint64_t filesize,
-                                 uint8_t *filename, uint16_t filename_length, void *_ltox)
+                                 const uint8_t *filename, uint16_t filename_length, void *_ltox)
 {
     LTox *ltox = (LTox*)_ltox;
     if(ltox->callbacks.file_send_request) {
         lua_pushnumber(Ls, friendnumber);
         lua_pushnumber(Ls, filenumber);
         lua_pushnumber(Ls, filesize);
-        lua_pushlstring(Ls, filename, filename_length);
+        lua_pushlstring(Ls, (const char*)filename, filename_length);
         call_cb(Ls, ltox, "file_send_request", 0, 4);
     }
 }
@@ -383,7 +383,7 @@ int lua_tox_callback_file_send_request(lua_State* L) {
 }
 
 void on_file_control (Tox *tox, int32_t friendnumber, uint8_t send_receive, uint8_t filenumber,
-                              uint8_t control_type, uint8_t *data, uint16_t length, void *_ltox)
+                              uint8_t control_type, const uint8_t *data, uint16_t length, void *_ltox)
 {
     LTox *ltox = (LTox*)_ltox;
     if(ltox->callbacks.file_control) {
@@ -391,7 +391,7 @@ void on_file_control (Tox *tox, int32_t friendnumber, uint8_t send_receive, uint
         lua_pushnumber(Ls, send_receive); // reveiving == 1, sending == 0
         lua_pushnumber(Ls, filenumber);
         lua_pushnumber(Ls, control_type);
-        lua_pushlstring(Ls, data, length);
+        lua_pushlstring(Ls, (const char*)data, length);
         call_cb(Ls, ltox, "file_control", 0, 5);
     }
 }
@@ -405,13 +405,13 @@ int lua_tox_callback_file_control(lua_State* L) {
     return 0;
 }
 
-void on_file_data(Tox *tox, int32_t friendnumber, uint8_t filenumber, uint8_t *data, uint16_t length, void *_ltox)
+void on_file_data(Tox *tox, int32_t friendnumber, uint8_t filenumber, const uint8_t *data, uint16_t length, void *_ltox)
 {
     LTox *ltox = (LTox*)_ltox;
     if(ltox->callbacks.file_data) {
         lua_pushnumber(Ls, friendnumber);
         lua_pushnumber(Ls, filenumber);
-        lua_pushlstring(Ls, data, length);
+        lua_pushlstring(Ls, (const char*)data, length);
         call_cb(Ls, ltox, "file_data", 0, 3);
     }
 }
@@ -438,7 +438,7 @@ int lua_tox_get_address(lua_State* L) {
     uint8_t address[TOX_FRIEND_ADDRESS_SIZE];
     tox_get_address(tox, address);
 
-    lua_pushlstring(L, address, TOX_FRIEND_ADDRESS_SIZE);
+    lua_pushlstring(L, (const char*)address, TOX_FRIEND_ADDRESS_SIZE);
 
     /*
     // convert to string
@@ -515,7 +515,7 @@ int lua_tox_get_client_id(lua_State* L) {
         lua_pushstring(L, "Can't get client id");
     }
     else {
-        lua_pushlstring(L, client_id, TOX_CLIENT_ID_SIZE);
+        lua_pushlstring(L, (const char*)client_id, TOX_CLIENT_ID_SIZE);
         lua_pushnil(L);
     }
     return 2;
@@ -632,7 +632,7 @@ int lua_tox_get_self_name(lua_State* L) {
     lua_settop(L,0);
     uint8_t name[TOX_MAX_NAME_LENGTH];
     uint16_t len = tox_get_self_name(tox, name);
-    lua_pushlstring(L, name, len);
+    lua_pushlstring(L, (const char*)name, len -1);
     return 1;
 }
 
@@ -645,7 +645,7 @@ int lua_tox_get_name(lua_State* L) {
     if(len<0)
         lua_pushnil(L);
     else
-        lua_pushlstring(L, name, len);
+        lua_pushlstring(L, (const char*)name, len -1);
     return 1;
 }
 
@@ -728,7 +728,7 @@ int lua_tox_get_status_message(lua_State* L) {
         uint8_t buf[maxlen];
         r = tox_get_status_message(tox, friendnumber, buf, maxlen);
         if(r>0)
-            lua_pushlstring(L, buf, r);
+            lua_pushlstring(L, (const char*)buf, r);
         else
             lua_pushnil(L);
     }
@@ -747,7 +747,7 @@ int lua_tox_get_self_status_message(lua_State* L) {
         uint8_t buf[maxlen];
         r = tox_get_self_status_message(tox, buf, maxlen);
         if(r>0)
-            lua_pushlstring(L, buf, r);
+            lua_pushlstring(L, (const char*)buf, r);
         else
             lua_pushnil(L);
     }
@@ -779,7 +779,7 @@ int lua_tox_get_last_online(lua_State* L) {
     int32_t friendnumber = luaL_checknumber(L,2);
     lua_settop(L,0);
     uint64_t time = tox_get_last_online(tox, friendnumber);
-    if(time<0)
+    if(time==0)
         lua_pushnil(L);
     else
         lua_pushnumber(L,time);
@@ -894,7 +894,7 @@ int lua_tox_group_peername(lua_State* L) {
     if(len<0)
         lua_pushnil(L);
     else
-        lua_pushlstring(L, name, len);
+        lua_pushlstring(L, (const char*)name, len);
     return 1;
 }
 
@@ -975,7 +975,7 @@ int lua_tox_group_get_names(lua_State* L) {
     else {
         lua_newtable(L);
         for(int i=0;i<nb_peers;++i) {
-            lua_pushlstring(L, names[i], lengths[i]);
+            lua_pushlstring(L, (const char*)names[i], lengths[i]);
             lua_pushnumber(L, i+1);
             lua_settable(L,-3);
         }
@@ -1125,7 +1125,7 @@ int lua_tox_save(lua_State* L) {
     uint32_t size = tox_size(tox);
     uint8_t data[size];
     tox_save(tox, data);
-    lua_pushlstring(L, data, size);
+    lua_pushlstring(L, (const char*)data, size);
     return 1;
 }
 
