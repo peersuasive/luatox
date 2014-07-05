@@ -632,7 +632,7 @@ int lua_tox_get_self_name(lua_State* L) {
     lua_settop(L,0);
     uint8_t name[TOX_MAX_NAME_LENGTH];
     uint16_t len = tox_get_self_name(tox, name);
-    lua_pushlstring(L, (const char*)name, len -1);
+    lua_pushlstring(L, (const char*)name, len);
     return 1;
 }
 
@@ -645,7 +645,7 @@ int lua_tox_get_name(lua_State* L) {
     if(len<0)
         lua_pushnil(L);
     else
-        lua_pushlstring(L, (const char*)name, len -1);
+        lua_pushlstring(L, (const char*)name, len);
     return 1;
 }
 
