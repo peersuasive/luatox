@@ -120,7 +120,7 @@ int lua_tox_generate_dns3_string(lua_State* L) {
         lua_pushnumber(L, req); // request id
         lua_settable(L,-3);
         lua_pushnumber(L, 2);
-        lua_pushlstring(L, res, rlen); // request string
+        lua_pushlstring(L, (char*)res, rlen); // request string
         lua_settable(L,-3);
         return 1;
     }
@@ -155,7 +155,7 @@ int lua_tox_decrypt_dns3_TXT(lua_State* L) {
     }
     else {
         lua_pushstring(L, res);
-        lua_pushlstring(L, tox_id, TOX_FRIEND_ADDRESS_SIZE);
+        lua_pushlstring(L, (char*)tox_id, TOX_FRIEND_ADDRESS_SIZE);
         return 2;
     }
 }

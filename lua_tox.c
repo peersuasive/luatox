@@ -64,7 +64,7 @@ static LTox *pushTox(lua_State* L, uint8_t ipv6enabled) {
     LTox *ltox = (LTox*)lua_newuserdata(L, sizeof(LTox));
     ltox->tox = tox_new(ipv6enabled);
     if(ltox->tox==NULL) {
-        lua_pushstring(L, "Can't create new tox!");
+        lua_pushliteral(L, "Can't create new tox!");
         lua_error(L);
     }
     luaL_getmetatable(L, TOX_STR);
@@ -72,22 +72,29 @@ static LTox *pushTox(lua_State* L, uint8_t ipv6enabled) {
     return ltox;
 }
 
-void bin_to_string(uint8_t *address, char *id, int len) {
+int bin_to_string(uint8_t *address, uint8_t *id, int len) {
+    int total = 0;
     size_t i;
     for (i = 0; i < len; ++i) {
         char xx[3];
-        snprintf(xx, sizeof(xx), "%02X", address[i] & 0xff);
-        strcat(id, xx);
+        int s = snprintf(xx, sizeof(xx), "%02X", address[i] & 0xff);
+        if(s==0)
+            return 0;
+        total+=s;
+
+        if ( strcat((char*)id, xx) == NULL )
+            return 0;
     }
+    return total;
 }
-void pub_bin_to_string(uint8_t *address, char *id) {
-    bin_to_string(address, id, TOX_CLIENT_ID_SIZE);
+int pub_bin_to_string(uint8_t *address, uint8_t *id) {
+    return bin_to_string(address, id, TOX_CLIENT_ID_SIZE);
 }
-void friend_bin_to_string(uint8_t *address, char *id) {
-    bin_to_string(address, id, TOX_FRIEND_ADDRESS_SIZE);
+int friend_bin_to_string(uint8_t *address, uint8_t *id) {
+    return bin_to_string(address, id, TOX_FRIEND_ADDRESS_SIZE);
 }
 
-int string_to_bin(const char *id, uint8_t *address, int len) {
+int string_to_bin(uint8_t *id, uint8_t *address, int len) {
     size_t i;
     char xx[3];
     uint32_t x;
@@ -99,18 +106,57 @@ int string_to_bin(const char *id, uint8_t *address, int len) {
 
         if (sscanf(xx, "%02x", &x) != 1) {
             // error
-            return -1;
+            return 0;
         }
 
         address[i] = x;
     }
-    return 0;
+    return 1;
 }
-int friend_string_to_bin(const char *id, uint8_t *address) {
+int friend_string_to_bin(uint8_t *id, uint8_t *address) {
     return string_to_bin(id, address, TOX_FRIEND_ADDRESS_SIZE);
 }
-int pub_string_to_bin(const char *id, uint8_t *address) {
+int pub_string_to_bin(uint8_t *id, uint8_t *address) {
     return string_to_bin(id, address, TOX_CLIENT_ID_SIZE);
+}
+
+int throw_error(lua_State *L, int32_t err) {
+    lua_pushnil(L);
+    switch(err) {
+        case TOX_FAERR_TOOLONG:
+            lua_pushliteral(L, "Message is too long.");
+            break;
+
+        case TOX_FAERR_NOMESSAGE:
+            lua_pushliteral(L, "Please add a message to your request.");
+            break;
+
+        case TOX_FAERR_OWNKEY:
+            lua_pushliteral(L, "That appears to be your own ID.");
+            break;
+
+        case TOX_FAERR_ALREADYSENT:
+            lua_pushliteral(L, "Friend request already sent.");
+            break;
+
+        case TOX_FAERR_BADCHECKSUM:
+            lua_pushliteral(L, "Bad checksum address.");
+            break;
+
+        case TOX_FAERR_SETNEWNOSPAM:
+            lua_pushliteral(L, "Friend has a different nospam.");
+            break;
+
+        case TOX_FAERR_NOMEM:
+            lua_pushliteral(L, "Failed to increase friend list.");
+            break;
+
+        case TOX_FAERR_UNKNOWN:
+        default:
+            lua_pushliteral(L, "Undefined error.");
+            break;
+    }
+    return 2;
 }
 
 /**************************
@@ -438,7 +484,7 @@ int lua_tox_get_address(lua_State* L) {
     uint8_t address[TOX_FRIEND_ADDRESS_SIZE];
     tox_get_address(tox, address);
 
-    lua_pushlstring(L, (const char*)address, TOX_FRIEND_ADDRESS_SIZE);
+    lua_pushlstring(L, (char*)address, TOX_FRIEND_ADDRESS_SIZE);
 
     /*
     // convert to string
@@ -454,19 +500,20 @@ int lua_tox_add_friend(lua_State* L) {
     Tox *tox = checkTox(L,1);
     uint8_t *address = (uint8_t*)luaL_checkstring(L, 2);
     size_t len;
-    uint8_t *data = (uint8_t*)lua_tolstring(L,3, &len);
+    uint8_t *msg = (uint8_t*)lua_tolstring(L,3, &len);
     lua_settop(L,0);
 
-    int32_t status = tox_add_friend(tox, address, data, len);
-    if(status<0) {
-        lua_pushnil(L);
-        lua_pushnumber(L, status);
-        return 2;
-    }
-    else {
-        lua_pushnumber(L, status);
-        return 1;
-    }
+    uint8_t data[TOX_FRIEND_ADDRESS_SIZE] = {0};
+    if( ! friend_string_to_bin(address, data) )
+        return throw_error(L, TOX_FAERR_BADCHECKSUM);
+    // try dns3_lookup if failed ?
+
+    int32_t status = tox_add_friend(tox, data, msg, strlen((char*)data));
+    if(status<0)
+        return throw_error(L, status);
+    
+    lua_pushnumber(L, status);
+    return 1;
 }
 
 int lua_tox_add_friend_norequest(lua_State* L) {
@@ -475,16 +522,11 @@ int lua_tox_add_friend_norequest(lua_State* L) {
     lua_settop(L,0);
     int32_t status = tox_add_friend_norequest(tox, client_id);
     lua_pushnumber(L,status);
-    if(status<0) {
-        lua_pushnil(L);
-        lua_pushstring(L,"Failed to add friend");
-    }
-    else {
-        lua_pushnumber(L, status);
-        lua_pushnil(L);
-    }
+    if(status<0)
+        return throw_error(L, status);
 
-    return 2;
+    lua_pushnumber(L, status);
+    return 1;
 }   
 
 int lua_tox_get_friend_number(lua_State* L) {
@@ -493,15 +535,11 @@ int lua_tox_get_friend_number(lua_State* L) {
     lua_settop(L,0);
 
     int32_t num = tox_get_friend_number(tox, client_id);
-    if(num<0) {
-        lua_pushnil(L);
-        lua_pushstring(L, "Friend not found");
-    }
-    else {
-        lua_pushnumber(L, num);
-        lua_pushnil(L);
-    }
-    return 2;
+    if(num<0)
+        return throw_error(L, num);
+    
+    lua_pushnumber(L, num);
+    return 1;
 }
 
 int lua_tox_get_client_id(lua_State* L) {
@@ -510,15 +548,12 @@ int lua_tox_get_client_id(lua_State* L) {
     lua_settop(L,0);
 
     uint8_t client_id[TOX_CLIENT_ID_SIZE];
-    if( tox_get_client_id(tox, friendnumber, client_id) < 0 ) {
-        lua_pushnil(L);
-        lua_pushstring(L, "Can't get client id");
-    }
-    else {
-        lua_pushlstring(L, (const char*)client_id, TOX_CLIENT_ID_SIZE);
-        lua_pushnil(L);
-    }
-    return 2;
+    int32_t r = tox_get_client_id(tox, friendnumber, client_id);
+    if(r<0)
+        return throw_error(L, r);
+
+    lua_pushlstring(L, (char*)client_id, TOX_CLIENT_ID_SIZE);
+    return 1;
 }
 
 int lua_tox_del_friend(lua_State* L) {
@@ -536,7 +571,7 @@ int lua_tox_get_friend_connection_status(lua_State* L) {
     lua_settop(L,0);
     
     int r = tox_get_friend_connection_status(tox, friendnumber);
-    lua_pushnumber(L,r);
+    lua_pushboolean(L,r);
     return 1;
 }
 
@@ -545,24 +580,53 @@ int lua_tox_friend_exists(lua_State* L) {
     int32_t friendnumber = luaL_checknumber(L,2);
     lua_settop(L,0);
     
-    int r = tox_get_friend_connection_status(tox, friendnumber);
-    lua_pushboolean(L, (r==1));
+    int r = tox_friend_exists(tox, friendnumber);
+    lua_pushboolean(L, r);
 
     return 1;
 }
 
+int lua_send_messages(lua_State *L, Tox *tox, int32_t friendnumber, uint8_t *message, size_t len) {
+    lua_newtable(L);
+    int top = lua_gettop(L);
+    int i = 1, cur = 0;
+    int res = 0;
+    while (cur < len) {
+        size_t max = (len - cur) > TOX_MAX_NAME_LENGTH ? TOX_MAX_NAME_LENGTH : (len-cur);
+        uint8_t msg[max];
+        memcpy(msg, message+cur, max);
+        cur = len - max + 1;
+        res = tox_send_message(tox, friendnumber, message, len);
+        if(res==0)
+            break;
+        lua_pushnumber(L, ++i);
+        lua_pushnumber(L, res);
+        lua_settable(L, top);
+    }
+    if(res==0) {
+        lua_pop(L,1);
+        lua_pushnil(L);
+        lua_pushliteral(L, "Failed to send message.");
+        return 2;
+    }
+    return 1;
+}
 int lua_tox_send_message(lua_State* L) {
     Tox *tox = checkTox(L,1);
     int32_t friendnumber = luaL_checknumber(L,2);
     size_t len;
     uint8_t *message = (uint8_t*)luaL_checklstring(L,3,&len);
     lua_settop(L,0);
+    if( len > TOX_MAX_MESSAGE_LENGTH )
+        return lua_send_messages(L, tox, friendnumber, message, len);
 
     int r = tox_send_message(tox, friendnumber, message, len);
-    if(r==0)
+    if(r==0) {
         lua_pushnil(L);
-    else
-        lua_pushnumber(L,r);
+        lua_pushliteral(L, "Failed to send message.");
+        return 2;
+    }
+    lua_pushnumber(L,r);
     return 1;
 }
 
@@ -573,13 +637,19 @@ int lua_tox_send_message_withid(lua_State* L) {
     size_t len;
     uint8_t *message = (uint8_t*)luaL_checklstring(L,4,&len);
     lua_settop(L,0);
+    if( len > TOX_MAX_MESSAGE_LENGTH ) {
+        lua_pushnil(L);
+        lua_pushfstring(L, "Message too long (%lu > %d).", len, TOX_MAX_MESSAGE_LENGTH);
+        return 2;
+    }
 
     int r = tox_send_message_withid(tox, friendnumber, theid, message, len);
-    if(r==0)
+    if(r==0) {
         lua_pushnil(L);
-    else
-        lua_pushnumber(L,r);
-
+        lua_pushliteral(L, "Unknown error.");
+        return 2;
+    }
+    lua_pushnumber(L,r);
     return 1;
 }
 
@@ -589,13 +659,18 @@ int lua_tox_send_action(lua_State* L) {
     size_t len;
     uint8_t *action = (uint8_t*)luaL_checklstring(L,3, &len);
     lua_settop(L,0);
-
-    int r = tox_send_action(tox, friendnumber, action, len);
-    if(r==0)
+    if( len > TOX_MAX_MESSAGE_LENGTH ) {
         lua_pushnil(L);
-    else
-        lua_pushnumber(L,r);
-
+        lua_pushfstring(L, "Message too long (%lu > %d).", len, TOX_MAX_MESSAGE_LENGTH);
+        return 2;
+    }
+    int r = tox_send_action(tox, friendnumber, action, len);
+    if(r==0) {
+        lua_pushnil(L);
+        lua_pushliteral(L, "Unknown error.");
+        return 2;
+    }
+    lua_pushnumber(L,r);
     return 1;
 }
 
@@ -606,13 +681,19 @@ int lua_tox_send_action_withid(lua_State* L) {
     size_t len;
     uint8_t *action = (uint8_t*)luaL_checklstring(L,4,&len);
     lua_settop(L,0);
+    if( len > TOX_MAX_MESSAGE_LENGTH ) {
+        lua_pushnil(L);
+        lua_pushfstring(L, "Message too long (%lu > %d).", len, TOX_MAX_MESSAGE_LENGTH);
+        return 2;
+    }
 
     int r = tox_send_action_withid(tox, friendnumber, theid, action, len);
-    if(r==0)
+    if(r==0) {
         lua_pushnil(L);
-    else
-        lua_pushnumber(L,r);
-
+        lua_pushliteral(L, "Unknown error.");
+        return 2;
+    }
+    lua_pushnumber(L,r);
     return 1;
 }
 
@@ -632,6 +713,11 @@ int lua_tox_get_self_name(lua_State* L) {
     lua_settop(L,0);
     uint8_t name[TOX_MAX_NAME_LENGTH];
     uint16_t len = tox_get_self_name(tox, name);
+    if(len==0) {
+        lua_pushnil(L);
+        lua_pushliteral(L, "Unknown error.");
+        return 2;
+    }
     lua_pushlstring(L, (const char*)name, len);
     return 1;
 }
@@ -642,10 +728,10 @@ int lua_tox_get_name(lua_State* L) {
     lua_settop(L,0);
     uint8_t name[TOX_MAX_NAME_LENGTH];
     int len = tox_get_name(tox, friendnumber, name);
-    if(len<0)
+    if(len<=0)
         lua_pushnil(L);
     else
-        lua_pushlstring(L, (const char*)name, len);
+        lua_pushlstring(L, (char*)name, len);
     return 1;
 }
 
@@ -723,12 +809,11 @@ int lua_tox_get_status_message(lua_State* L) {
     int32_t friendnumber = luaL_checknumber(L,2);
     lua_settop(L,0);
     uint32_t maxlen = tox_get_status_message_size(tox, friendnumber);
-    int r = -1;
     if(maxlen > 0) {
         uint8_t buf[maxlen];
-        r = tox_get_status_message(tox, friendnumber, buf, maxlen);
+        int r = tox_get_status_message(tox, friendnumber, buf, maxlen);
         if(r>0)
-            lua_pushlstring(L, (const char*)buf, r);
+            lua_pushlstring(L, (char*)buf, r);
         else
             lua_pushnil(L);
     }
@@ -747,7 +832,7 @@ int lua_tox_get_self_status_message(lua_State* L) {
         uint8_t buf[maxlen];
         r = tox_get_self_status_message(tox, buf, maxlen);
         if(r>0)
-            lua_pushlstring(L, (const char*)buf, r);
+            lua_pushlstring(L, (char*)buf, r);
         else
             lua_pushnil(L);
     }
@@ -770,7 +855,6 @@ int lua_tox_get_self_user_status(lua_State* L) {
     lua_settop(L,0);
     uint8_t status = tox_get_self_user_status(tox);
     lua_pushnumber(L,status);
-
     return 1;
 }
 
@@ -779,7 +863,7 @@ int lua_tox_get_last_online(lua_State* L) {
     int32_t friendnumber = luaL_checknumber(L,2);
     lua_settop(L,0);
     uint64_t time = tox_get_last_online(tox, friendnumber);
-    if(time==0)
+    if(time<0)
         lua_pushnil(L);
     else
         lua_pushnumber(L,time);
@@ -801,14 +885,14 @@ int lua_tox_get_is_typing(lua_State* L) {
     int32_t friendnumber = luaL_checknumber(L,2);
     lua_settop(L,0);
     int r = tox_get_is_typing(tox,friendnumber);
-    lua_pushboolean(L, (r==1));
+    lua_pushboolean(L, r);
     return 1;
 }
 
 int lua_tox_set_sends_receipts(lua_State* L) {
     Tox *tox = checkTox(L,1);
     int32_t friendnumber = luaL_checknumber(L,2);
-    int yesno = luaL_checknumber(L,3);
+    int yesno = lua_toboolean(L,3);
     lua_settop(L,0);
     tox_set_sends_receipts(tox, friendnumber, yesno);
     return 0;
@@ -850,8 +934,7 @@ int lua_tox_get_nospam(lua_State* L) {
     Tox *tox = checkTox(L,1);
     lua_settop(L,0);
     uint32_t nospam = tox_get_nospam(tox);
-    // assume 1 for set
-    lua_pushboolean(L, (nospam==1));
+    lua_pushnumber(L, nospam);
     return 1;
 }
 
@@ -894,7 +977,7 @@ int lua_tox_group_peername(lua_State* L) {
     if(len<0)
         lua_pushnil(L);
     else
-        lua_pushlstring(L, (const char*)name, len);
+        lua_pushlstring(L, (char*)name, len);
     return 1;
 }
 
@@ -975,7 +1058,7 @@ int lua_tox_group_get_names(lua_State* L) {
     else {
         lua_newtable(L);
         for(int i=0;i<nb_peers;++i) {
-            lua_pushlstring(L, (const char*)names[i], lengths[i]);
+            lua_pushlstring(L, (char*)names[i], lengths[i]);
             lua_pushnumber(L, i+1);
             lua_settable(L,-3);
         }
@@ -1125,7 +1208,7 @@ int lua_tox_save(lua_State* L) {
     uint32_t size = tox_size(tox);
     uint8_t data[size];
     tox_save(tox, data);
-    lua_pushlstring(L, (const char*)data, size);
+    lua_pushlstring(L, (char*)data, size);
     return 1;
 }
 
@@ -1308,82 +1391,82 @@ int lua_tox_register(lua_State* L) {
     lua_setfield(L, -2, "RECEIVE");
 
     // status
-    lua_pushstring(L, "status");
+    lua_pushliteral(L, "status");
     lua_newtable(L);
-    lua_pushstring(L,"NONE");
+    lua_pushliteral(L,"NONE");
     lua_pushnumber(L,TOX_USERSTATUS_NONE);
     lua_settable(L,-3);
-    lua_pushstring(L,"AWAY");
+    lua_pushliteral(L,"AWAY");
     lua_pushnumber(L,TOX_USERSTATUS_AWAY);
     lua_settable(L,-3);
-    lua_pushstring(L,"BUSY");
+    lua_pushliteral(L,"BUSY");
     lua_pushnumber(L,TOX_USERSTATUS_BUSY);
     lua_settable(L,-3);
-    lua_pushstring(L,"INVALID");
+    lua_pushliteral(L,"INVALID");
     lua_pushnumber(L,TOX_USERSTATUS_INVALID);
     lua_settable(L,-3);
     lua_settable(L,-3);
  
     // chat status
-    lua_pushstring(L, "chat");
+    lua_pushliteral(L, "chat");
     lua_newtable(L);
-    lua_pushstring(L,"ADD");
+    lua_pushliteral(L,"ADD");
     lua_pushnumber(L,TOX_CHAT_CHANGE_PEER_ADD);
     lua_settable(L,-3);
-    lua_pushstring(L,"DEL");
+    lua_pushliteral(L,"DEL");
     lua_pushnumber(L,TOX_CHAT_CHANGE_PEER_DEL);
     lua_settable(L,-3);
-    lua_pushstring(L,"NAME");
+    lua_pushliteral(L,"NAME");
     lua_pushnumber(L,TOX_CHAT_CHANGE_PEER_NAME);
     lua_settable(L,-3);
     lua_settable(L,-3);
 
     // file control
-    lua_pushstring(L, "control");
+    lua_pushliteral(L, "control");
     lua_newtable(L);
-    lua_pushstring(L,"ACCEPT");
+    lua_pushliteral(L,"ACCEPT");
     lua_pushnumber(L,TOX_FILECONTROL_ACCEPT);
     lua_settable(L,-3);
-    lua_pushstring(L,"PAUSE");
+    lua_pushliteral(L,"PAUSE");
     lua_pushnumber(L,TOX_FILECONTROL_PAUSE);
     lua_settable(L,-3);
-    lua_pushstring(L,"KILL");
+    lua_pushliteral(L,"KILL");
     lua_pushnumber(L,TOX_FILECONTROL_KILL);
     lua_settable(L,-3);
-    lua_pushstring(L,"FINISHED");
+    lua_pushliteral(L,"FINISHED");
     lua_pushnumber(L,TOX_FILECONTROL_FINISHED);
     lua_settable(L,-3);
-    lua_pushstring(L,"RESUME_BROKEN");
+    lua_pushliteral(L,"RESUME_BROKEN");
     lua_pushnumber(L,TOX_FILECONTROL_RESUME_BROKEN);
     lua_settable(L,-3);
     lua_settable(L,-3);
  
 
     // errors
-    lua_pushstring(L, "errors");
+    lua_pushliteral(L, "errors");
     lua_newtable(L);
-    lua_pushstring(L, "TOOLONG");
+    lua_pushliteral(L, "TOOLONG");
     lua_pushnumber(L, TOX_FAERR_TOOLONG);
     lua_settable(L, -3);
-    lua_pushstring(L, "NOMESSAGE");
+    lua_pushliteral(L, "NOMESSAGE");
     lua_pushnumber(L, TOX_FAERR_NOMESSAGE);
     lua_settable(L, -3);
-    lua_pushstring(L, "OWNKEY");
+    lua_pushliteral(L, "OWNKEY");
     lua_pushnumber(L, TOX_FAERR_OWNKEY);
     lua_settable(L, -3);
-    lua_pushstring(L, "ALREADYSENT");
+    lua_pushliteral(L, "ALREADYSENT");
     lua_pushnumber(L, TOX_FAERR_ALREADYSENT);
     lua_settable(L, -3);
-    lua_pushstring(L, "UNKNOWN");
+    lua_pushliteral(L, "UNKNOWN");
     lua_pushnumber(L, TOX_FAERR_UNKNOWN);
     lua_settable(L, -3);
-    lua_pushstring(L, "BADCHECKSUM");
+    lua_pushliteral(L, "BADCHECKSUM");
     lua_pushnumber(L, TOX_FAERR_BADCHECKSUM);
     lua_settable(L, -3);
-    lua_pushstring(L, "SETNEWNOSPAM");
+    lua_pushliteral(L, "SETNEWNOSPAM");
     lua_pushnumber(L, TOX_FAERR_SETNEWNOSPAM);
     lua_settable(L, -3);
-    lua_pushstring(L, "NOMEM");
+    lua_pushliteral(L, "NOMEM");
     lua_pushnumber(L, TOX_FAERR_NOMEM);
     lua_settable(L, -3);
     lua_settable(L, -3);
