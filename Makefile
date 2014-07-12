@@ -13,7 +13,7 @@ else
 endif
 
 CFLAGS = -std=c99
-CFLAGS += -fPIC
+CFLAGS += -fPIC -Wall -Wno-unused-variable -Wno-unused-function
 #CFLAGS += -O2
 CFLAGS += -g
 CFLAGS += $(INC)
