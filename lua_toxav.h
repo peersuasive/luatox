@@ -45,6 +45,8 @@ typedef struct _callbacks_t {
     int on_error;
     int on_request_timeout;
     int on_peer_timeout;
+    int on_audio_recv;
+    int on_video_recv;
 } callbacks_t;
 
 typedef struct _LTox {

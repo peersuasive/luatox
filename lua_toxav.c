@@ -116,10 +116,10 @@ int getSettings(lua_State *L) {
     lua_pushnumber(L, settings->video_bitrate);
     lua_settable(L,-3);
     lua_pushstring(L, "videoWidth");
-    lua_pushnumber(L, settings->video_width);
+    lua_pushnumber(L, settings->max_video_width);
     lua_settable(L,-3);
     lua_pushstring(L, "videoHeight");
-    lua_pushnumber(L, settings->video_height);
+    lua_pushnumber(L, settings->max_video_height);
     lua_settable(L,-3);
     lua_pushstring(L, "audioBitrate");
     lua_pushnumber(L, settings->audio_bitrate);
@@ -155,29 +155,29 @@ int getVideoBitrate(lua_State *L) {
 
 int setVideoWidth(lua_State *L) {
     ToxAvCodecSettings *settings = lua_get_settings(L,1);
-    uint16_t video_width = luaL_checknumber(L,2);
+    uint16_t max_video_width = luaL_checknumber(L,2);
     lua_settop(L,0);
-    settings->video_width = video_width;
+    settings->max_video_width = max_video_width;
     return 0;
 }
 int getVideoWidth(lua_State *L) {
     ToxAvCodecSettings *settings = lua_get_settings(L,2);
     lua_settop(L,0);
-    lua_pushnumber(L, settings->video_width);
+    lua_pushnumber(L, settings->max_video_width);
     return 1;
 }
 
 int setVideoHeight(lua_State *L) {
     ToxAvCodecSettings *settings = lua_get_settings(L,1);
-    uint16_t video_height = luaL_checknumber(L,2);
+    uint16_t max_video_height = luaL_checknumber(L,2);
     lua_settop(L,0);
-    settings->video_height = video_height;
+    settings->max_video_height = max_video_height;
     return 0;
 }
 int getVideoHeight(lua_State *L) {
     ToxAvCodecSettings *settings = lua_get_settings(L,2);
     lua_settop(L,0);
-    lua_pushnumber(L, settings->video_height);
+    lua_pushnumber(L, settings->max_video_height);
     return 1;
 }
 
@@ -413,6 +413,50 @@ int lua_toxav_register_callstate_callback(lua_State* L) {
     return 0;
 }
 
+// FIXME: untested
+void callback_OnAudioRecv(ToxAv *av, int32_t call_index, int16_t *data, int length) {
+    if(retrieve(Ls, av, "OnAudioRecvData")) {
+        LToxAv *lav = checkLToxAv(Ls,1);
+        lua_pop(Ls,1);
+
+        if(lav->callbacks.on_audio_recv) {
+            lua_pushnumber(Ls, call_index);
+            call_cb(Ls, lav, "OnAudioRecv", 0, 1);
+        }
+    }
+}
+int lua_toxav_audio_recv_callback(lua_State *L) {
+    LToxAv *lav = checkLToxAv(L,1);
+    set(L, lav, "OnAudioRecv", 2);
+    store(L, lav->av, "OnAudioRecvData", lav);
+    toxav_register_audio_recv_callback(lav->av, callback_OnAudioRecv);
+    lua_settop(L,0);
+    return 0;
+}
+
+void callback_OnVideoRecv(ToxAv *av, int32_t call_index, vpx_image_t *data) {
+    if(retrieve(Ls, av, "OnVideoRecvData")) {
+        LToxAv *lav = checkLToxAv(Ls,1);
+        lua_pop(Ls,1);
+
+        if(lav->callbacks.on_video_recv) {
+            lua_pushnumber(Ls, call_index);
+            call_cb(Ls, lav, "OnVideoRecv", 0, 1);
+        }
+    }
+}
+int lua_toxav_video_recv_callback(lua_State *L) {
+    lua_pushstring(L, "luatoxav: video recv callback: not implemented");
+    lua_error(L);
+
+    LToxAv *lav = checkLToxAv(L,1);
+    set(L, lav, "OnVideoRecv", 2);
+    store(L, lav->av, "OnVideoRecvData", lav);
+    toxav_register_video_recv_callback(lav->av, callback_OnVideoRecv);
+    lua_settop(L,0);
+    return 0;
+}
+
 /*************************
  *                       *
  * ToxAv wrapped methods *
@@ -597,6 +641,8 @@ int lua_toxav_kill_transmission(lua_State* L) {
     }
 }
 
+// NOTE: API changes, A/V are now callbacks
+/*
 int lua_toxav_recv_video (lua_State* L) {
     lua_pushstring(L, "recvVideo: no implemented");
     lua_error(L);
@@ -645,6 +691,7 @@ int lua_toxav_send_video (lua_State* L) {
     lua_settop(L,0);
     return 0;
 }
+*/
 
 // TODO: should merge prepare_audio and send_audio
 int lua_toxav_send_audio (lua_State* L) {
@@ -769,6 +816,18 @@ int lua_toxav_set_video_queue_limit (lua_State* L) {
     return 0;
 }
 
+int lua_toxav_get_call_state(lua_State *L) {
+    ToxAv *av = checkToxAv(L,1);
+    HandleCall* handle = (HandleCall*)lua_touserdata(L,2);
+    lua_settop(L,0);
+    ToxAvCallState state = toxav_get_call_state(av, handle->call_index);
+
+    if(state<0)
+        return 0;
+    lua_pushnumber(L,state);
+    return 1;
+}
+
 int lua_toxav_get_tox(lua_State* L) {
     ToxAv *av = checkToxAv(L,1);
     lua_settop(L,0);
@@ -843,6 +902,8 @@ int lua_toxav_new(lua_State* L) {
     lav->callbacks.on_error = 0;
     lav->callbacks.on_request_timeout = 0;
     lav->callbacks.on_peer_timeout = 0;
+    lav->callbacks.on_audio_recv = 0;
+    lav->callbacks.on_video_recv = 0;
 
     reg(L, lav);
     return 1;
@@ -882,8 +943,8 @@ static const luaL_Reg toxav_methods[] = {
     {"stopCall", lua_toxav_stop_call},
     {"prepareTransmission", lua_toxav_prepare_transmission},
     {"killTransmission", lua_toxav_kill_transmission},
-    {"recvVideo", lua_toxav_recv_video},
-    {"recvAudio", lua_toxav_recv_audio},
+    //{"recvVideo", lua_toxav_recv_video},
+    //{"recvAudio", lua_toxav_recv_audio},
     {"sendVideo", lua_toxav_send_video},
     {"sendAudio", lua_toxav_send_audio},
     {"prepareVideoFrame", lua_toxav_prepare_video_frame},
@@ -894,7 +955,11 @@ static const luaL_Reg toxav_methods[] = {
     {"setAudioQueueLimit", lua_toxav_set_audio_queue_limit},
     {"setVideoQueueLimit", lua_toxav_set_video_queue_limit},
 
+    {"getCallState", lua_toxav_get_call_state},
+
     {"registerCallback", lua_toxav_register_callstate_callback},
+    {"recvVideo", lua_toxav_audio_recv_callback},
+    {"recvAudio", lua_toxav_video_recv_callback},
     
     {NULL, NULL}
 };
@@ -998,6 +1063,23 @@ int lua_toxav_register(lua_State* L) {
     lua_pushnumber(L, TypeVideo);
     lua_settable(L,-3);
     lua_settable(L,-3);
+
+    // call state
+    lua_pushstring(L, "state");
+    lua_newtable(L);
+    lua_pushstring(L, "inviting");
+    lua_pushnumber(L, av_CallInviting);
+    lua_pushstring(L, "starting");
+    lua_pushnumber(L, av_CallStarting);
+    lua_pushstring(L, "active");
+    lua_pushnumber(L, av_CallActive);
+    lua_pushstring(L, "hold");
+    lua_pushnumber(L, av_CallHold);
+    lua_pushstring(L, "hangedUp");
+    lua_pushnumber(L, av_CallHanged_up);
+    lua_settable(L,-3);
+    lua_settable(L,-3);
+
 
     // capabilities
     lua_pushstring(L, "capabilities");
