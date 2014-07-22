@@ -88,6 +88,66 @@ static LToxAv *pushToxAv(lua_State* L, Tox *tox, int32_t max_calls) {
     return lav;
 }
 
+int throw_error(lua_State *L, int32_t err) {
+    lua_pushnil(L);
+
+    switch(err) {
+        case ErrorNone:
+            lua_pushliteral(L, "Size was 0.");
+            break;
+
+        case ErrorAlreadyInCall:
+            lua_pushliteral(L, "Already has an active call.");
+            break;
+
+        case ErrorNoCall:
+            lua_pushliteral(L, "Trying to perform call action while not in a call.");
+            break;
+
+        case ErrorInvalidState:
+            lua_pushliteral(L, "Trying to perform call action while in invalid.");
+            break;
+
+        case ErrorNoRtpSession:
+            lua_pushliteral(L, "Trying to perform rtp action on invalid session.");
+            break;
+
+        case ErrorAudioPacketLost:
+            lua_pushliteral(L, "Packet loss.");
+            break;
+
+        case ErrorStartingAudioRtp:
+            lua_pushliteral(L, "Error in toxav_prepare_transmission().");
+            break;
+
+        case ErrorStartingVideoRtp:
+            lua_pushliteral(L, "Error in toxav_prepare_transmission().");
+            break;
+
+        case ErrorTerminatingAudioRtp:
+            lua_pushliteral(L, "Error in toxav_kill_transmission().");
+            break;
+
+        case ErrorTerminatingVideoRtp:
+            lua_pushliteral(L, "Error in toxav_kill_transmission().");
+            break;
+
+        case ErrorPacketTooLarge:
+            lua_pushliteral(L, "Buffer exceeds size while encoding.");
+            break;
+
+        case ErrorInvalidCodecState:
+            lua_pushliteral(L, "Codec state not initialized.");
+            break;
+
+        case ErrorInternal:
+        default:
+            lua_pushliteral(L, "Internal error.");
+            break;
+    }
+    return 2;
+}
+
 /*************************
  *                       *
  * Video/Audio settings  *
@@ -260,8 +320,10 @@ int getJbufCapacity(lua_State *L) {
  *                       *
  *************************/
 
+// TODO: API changes now gives *av, avoid using arg and use *av instead
+
 // when invited, call_index is provided here
-void callback_OnInvite(int32_t call_index, void *arg) {
+void callback_OnInvite(void *av, int32_t call_index, void *arg) {
     LToxAv *lav = (LToxAv*)arg;
     if(lav->callbacks.on_invite) {
         lua_pushnumber(Ls, call_index);
@@ -269,7 +331,7 @@ void callback_OnInvite(int32_t call_index, void *arg) {
     }
 }
 
-void callback_OnStart(int32_t call_index, void* arg) {
+void callback_OnStart(void *av, int32_t call_index, void* arg) {
     LToxAv *lav = (LToxAv*)arg;
     if(lav->callbacks.on_start) {
         lua_pushnumber(Ls, call_index);
@@ -277,7 +339,7 @@ void callback_OnStart(int32_t call_index, void* arg) {
     }
 }
 
-void callback_OnCancel(int32_t call_index, void* arg) {
+void callback_OnCancel(void *av, int32_t call_index, void* arg) {
     LToxAv *lav = (LToxAv*)arg;
     if(lav->callbacks.on_cancel) {
         lua_pushnumber(Ls, call_index);
@@ -285,7 +347,7 @@ void callback_OnCancel(int32_t call_index, void* arg) {
     }
 }
 
-void callback_OnReject(int32_t call_index, void *arg) {
+void callback_OnReject(void *av, int32_t call_index, void *arg) {
     LToxAv *lav = (LToxAv*)arg;
     if(lav->callbacks.on_reject) {
         lua_pushnumber(Ls, call_index);
@@ -293,7 +355,7 @@ void callback_OnReject(int32_t call_index, void *arg) {
     }
 }
 
-void callback_OnEnd(int32_t call_index, void *arg) {
+void callback_OnEnd(void *av, int32_t call_index, void *arg) {
     LToxAv *lav = (LToxAv*)arg;
     if(lav->callbacks.on_end) {
         lua_pushnumber(Ls, call_index);
@@ -301,7 +363,7 @@ void callback_OnEnd(int32_t call_index, void *arg) {
     }
 }
 
-void callback_OnRinging(int32_t call_index, void *arg) {
+void callback_OnRinging(void *av, int32_t call_index, void *arg) {
     LToxAv *lav = (LToxAv*)arg;
     if(lav->callbacks.on_ringing) {
         lua_pushnumber(Ls, call_index);
@@ -309,7 +371,7 @@ void callback_OnRinging(int32_t call_index, void *arg) {
     }
 }
 
-void callback_OnStarting(int32_t call_index, void *arg) {
+void callback_OnStarting(void *av, int32_t call_index, void *arg) {
     LToxAv *lav = (LToxAv*)arg;
     if(lav->callbacks.on_starting) {
         lua_pushnumber(Ls, call_index);
@@ -317,7 +379,7 @@ void callback_OnStarting(int32_t call_index, void *arg) {
     }
 }
 
-void callback_OnEnding(int32_t call_index, void *arg) {
+void callback_OnEnding(void *av, int32_t call_index, void *arg) {
     LToxAv *lav = (LToxAv*)arg;
     if(lav->callbacks.on_ending) {
         lua_pushnumber(Ls, call_index);
@@ -325,15 +387,17 @@ void callback_OnEnding(int32_t call_index, void *arg) {
     }
 }
 
-void callback_OnError(int32_t call_index, void *arg) {
+/* API changes -- replaced by what ?
+void callback_OnError(void *av, int32_t call_index, void *arg) {
     LToxAv *lav = (LToxAv*)arg;
     if(lav->callbacks.on_error) {
         lua_pushnumber(Ls, call_index);
         call_cb(Ls, lav, "OnError", 0, 1);
     }
 }
+*/
 
-void callback_OnRequestTimeout(int32_t call_index, void *arg) {
+void callback_OnRequestTimeout(void *av, int32_t call_index, void *arg) {
     LToxAv *lav = (LToxAv*)arg;
     if(lav->callbacks.on_request_timeout) {
         lua_pushnumber(Ls, call_index);
@@ -341,11 +405,19 @@ void callback_OnRequestTimeout(int32_t call_index, void *arg) {
     }
 }
 
-void callback_OnPeerTimeout(int32_t call_index, void *arg) {
+void callback_OnPeerTimeout(void *av, int32_t call_index, void *arg) {
     LToxAv *lav = (LToxAv*)arg;
     if(lav->callbacks.on_peer_timeout) {
         lua_pushnumber(Ls, call_index);
         call_cb(Ls, lav, "OnPeerTimeout", 0, 1);
+    }
+}
+
+void callback_OnMediaChange(void *av, int32_t call_index, void *arg) {
+    LToxAv *lav = (LToxAv*)arg;
+    if(lav->callbacks.on_media_change) {
+        lua_pushnumber(Ls, call_index);
+        call_cb(Ls, lav, "OnMediaChange", 0, 1);
     }
 }
 
@@ -356,58 +428,64 @@ int lua_toxav_register_callstate_callback(lua_State* L) {
         case av_OnInvite:
             set(L, lav, "OnInvite", 3);
             lav->callbacks.on_invite = 1;
-            toxav_register_callstate_callback(callback_OnInvite, av_OnInvite, lav);
+            toxav_register_callstate_callback(lav->av, callback_OnInvite, av_OnInvite, lav);
             break;
         case av_OnStart:
             set(L, lav, "OnStart", 3);
             lav->callbacks.on_start = 1;
-            toxav_register_callstate_callback(callback_OnStart, av_OnStart, lav);
+            toxav_register_callstate_callback(lav->av, callback_OnStart, av_OnStart, lav);
             break;
         case av_OnCancel:
             set(L, lav, "OnCancel", 3);
             lav->callbacks.on_cancel = 1;
-            toxav_register_callstate_callback(callback_OnCancel, av_OnCancel, lav);
+            toxav_register_callstate_callback(lav->av, callback_OnCancel, av_OnCancel, lav);
             break;
         case av_OnReject:
             set(L, lav, "OnReject", 3);
             lav->callbacks.on_reject = 1;
-            toxav_register_callstate_callback(callback_OnReject, av_OnReject, lav);
+            toxav_register_callstate_callback(lav->av, callback_OnReject, av_OnReject, lav);
             break;
         case av_OnEnd:
             set(L, lav, "OnEnd", 3);
             lav->callbacks.on_end = 1;
-            toxav_register_callstate_callback(callback_OnEnd, av_OnEnd, lav);
+            toxav_register_callstate_callback(lav->av, callback_OnEnd, av_OnEnd, lav);
             break;
         case av_OnRinging:
             set(L, lav, "OnRinging", 3);
             lav->callbacks.on_ringing = 1;
-            toxav_register_callstate_callback(callback_OnRinging, av_OnRinging, lav);
+            toxav_register_callstate_callback(lav->av, callback_OnRinging, av_OnRinging, lav);
             break;
         case av_OnStarting:
             set(L, lav, "OnStarting", 3);
             lav->callbacks.on_starting = 1;
-            toxav_register_callstate_callback(callback_OnStarting, av_OnStarting, lav);
+            toxav_register_callstate_callback(lav->av, callback_OnStarting, av_OnStarting, lav);
             break;
         case av_OnEnding:
             set(L, lav, "OnEnding", 3);
             lav->callbacks.on_ending = 1;
-            toxav_register_callstate_callback(callback_OnEnding, av_OnEnding, lav);
+            toxav_register_callstate_callback(lav->av, callback_OnEnding, av_OnEnding, lav);
             break;
-        case av_OnError:
-            set(L, lav, "OnError", 3);
-            lav->callbacks.on_error = 1;
-            toxav_register_callstate_callback(callback_OnError, av_OnError, lav);
-            break;
+        //case av_OnError:
+        //    set(L, lav, "OnError", 3);
+        //    lav->callbacks.on_error = 1;
+        //    toxav_register_callstate_callback(lav->av, callback_OnError, av_OnError, lav);
+        //    break;
         case av_OnRequestTimeout:
             set(L, lav, "OnRequestTimeout", 3);
             lav->callbacks.on_request_timeout = 1;
-            toxav_register_callstate_callback(callback_OnRequestTimeout, av_OnRequestTimeout, lav);
+            toxav_register_callstate_callback(lav->av, callback_OnRequestTimeout, av_OnRequestTimeout, lav);
             break;
         case av_OnPeerTimeout:
             set(L, lav, "OnPeerTimeout", 3);
             lav->callbacks.on_peer_timeout = 1;
-            toxav_register_callstate_callback(callback_OnPeerTimeout, av_OnPeerTimeout, lav);
+            toxav_register_callstate_callback(lav->av, callback_OnPeerTimeout, av_OnPeerTimeout, lav);
             break;
+        case av_OnMediaChange:
+            set(L, lav, "av_OnMediaChange", 3);
+            lav->callbacks.on_media_change = 1;
+            toxav_register_callstate_callback(lav->av, callback_OnMediaChange, av_OnMediaChange, lav);
+            break;
+
     }
     lua_settop(L,0);
     return 0;
@@ -482,17 +560,13 @@ int lua_toxav_call(lua_State* L) {
     lua_settop(L,0);
     int32_t call_index;
     int r = toxav_call(lav->av, &call_index, user, call_type, ringing_seconds);
-    if(r==0) {
-        HandleCall *callHandle = newCall(lav, call_index);
-        lua_pushlightuserdata(L, callHandle);
-        lua_pushnumber(L, call_index);
-        return 2;
-    }
-    else {
-        lua_pushnil(L);
-        lua_pushnumber(L, r);
-        return 2;
-    }
+    if( r!= 0)
+        return throw_error(L, r);
+
+    HandleCall *callHandle = newCall(lav, call_index);
+    lua_pushlightuserdata(L, callHandle);
+    lua_pushnumber(L, call_index);
+    return 2;
 }
 
 int lua_toxav_hangup(lua_State* L) {
@@ -500,17 +574,11 @@ int lua_toxav_hangup(lua_State* L) {
     int32_t call_index = luaL_checknumber(L,2);
     lua_settop(L,0);
     int r = toxav_hangup(lav->av, call_index);
-    if(r==0) {
-        lua_pushboolean(L, 1);
-        return 1;
-    }
-    else {
-        lua_pushnil(L);
-        lua_pushnumber(L, r);
-        return 2;
-    }
+    if(r!=0)
+        return throw_error(L, r);
+    lua_pushboolean(L, 1);
+    return 1;
 }
-
 
 // for receiver, HandleCall is created here
 int lua_toxav_answer(lua_State* L) {
@@ -520,17 +588,13 @@ int lua_toxav_answer(lua_State* L) {
     lua_settop(L,0);
 
     int r = toxav_answer(lav->av, call_index, call_type);
-    if(r==0) {
-        HandleCall *callHandle = newCall(lav, call_index);
-        lua_pushlightuserdata(L, callHandle);
-        lua_pushnumber(L, call_index);
-        return 2;
-    }
-    else {
-        lua_pushnil(L);
-        lua_pushnumber(L, r);
-        return 2;
-    }
+    if(r != 0)
+        return throw_error(L, r);
+
+    HandleCall *callHandle = newCall(lav, call_index);
+    lua_pushlightuserdata(L, callHandle);
+    lua_pushnumber(L, call_index);
+    return 2;
 }
 
 int lua_toxav_reject(lua_State* L) {
@@ -540,15 +604,11 @@ int lua_toxav_reject(lua_State* L) {
     lua_settop(L,0);
 
     int r = toxav_reject(av, call_index, reason);
-    if(r==0) {
-        lua_pushboolean(L, 1);
-        return 1;
-    }
-    else {
-        lua_pushnil(L);
-        lua_pushnumber(L, r);
-        return 2;
-    }
+    if(r!=0)
+        return throw_error(L, r);
+
+    lua_pushboolean(L, 1);
+    return 1;
 }
 
 int lua_toxav_cancel(lua_State* L) {
@@ -559,15 +619,11 @@ int lua_toxav_cancel(lua_State* L) {
     lua_settop(L,0);
     
     int r = toxav_cancel(av, handle->call_index, peer_id, reason);
-    if(r==0) {
-        lua_pushboolean(L, 1);
-        return 1;
-    }
-    else {
-        lua_pushnil(L);
-        lua_pushnumber(L, r);
-        return 2;
-    }
+    if(r!=0)
+        return throw_error(L, r);
+
+    lua_pushboolean(L, 1);
+    return 1;
 }
 
 int lua_toxav_stop_call(lua_State* L) {
@@ -575,15 +631,11 @@ int lua_toxav_stop_call(lua_State* L) {
     int32_t call_index = luaL_checknumber(L,2);
     lua_settop(L,0);
     int r = toxav_stop_call(av, call_index);
-    if(r==0) {
-        lua_pushboolean(L, 1);
-        return 1;
-    }
-    else {
-        lua_pushnil(L);
-        lua_pushnumber(L, r);
-        return 2;
-    }
+    if (r != 0)
+        return throw_error(L, r);
+
+    lua_pushboolean(L, 1);
+    return 1;
 }
 
 int lua_toxav_prepare_transmission(lua_State* L) {
@@ -628,17 +680,10 @@ int lua_toxav_kill_transmission(lua_State* L) {
     }
     free(handle);
 
-    if(r==0) {
-        lua_pushboolean(L, 1);
-        lua_pushnumber(L, call_index);
-        return 2;
-    }
-    else {
-        lua_pushnil(L);
-        lua_pushnumber(L, call_index);
-        lua_pushnumber(L, r);
-        return 3;
-    }
+    if( r!= 0)
+        return throw_error(L, r);
+    lua_pushboolean(L, 1);
+    return 1;
 }
 
 // NOTE: API changes, A/V are now callbacks
@@ -700,15 +745,10 @@ int lua_toxav_send_audio (lua_State* L) {
     int payload_size = luaL_checknumber(L,3);
     lua_settop(L,0);
     int r = toxav_send_audio(av, handle->call_index, handle->payload, payload_size);
-    if(r==0) {
-        lua_pushboolean(L, 1);
-        return 1;
-    }
-    else {
-        lua_pushnil(L);
-        lua_pushnumber(L, r);
-        return 2;
-    }
+    if (r != 0)
+        return throw_error(L, r);
+    lua_pushboolean(L, 1);
+    return 1;
 }
 
 int lua_toxav_prepare_video_frame(lua_State* L) {
@@ -743,15 +783,11 @@ int lua_toxav_prepare_audio_frame(lua_State* L) {
     lua_settop(L,0);
     int r = toxav_prepare_audio_frame(av, handle->call_index,
                                             handle->payload, payload_size, handle->frame, handle->frame_size);
-    if(r>0) {
-        lua_pushnumber(L, r);
-        return 1;
-    }
-    else {
-        lua_pushnil(L);
-        lua_pushnumber(L, r);
-        return 2;
-    }
+
+    if(r<=0)
+        return throw_error(L, r);
+    lua_pushnumber(L, r);
+    return 1;
 }
 
 int lua_toxav_get_peer_transmission_type (lua_State* L) {
@@ -760,15 +796,10 @@ int lua_toxav_get_peer_transmission_type (lua_State* L) {
     int peer = luaL_checknumber(L,3);
     lua_settop(L,0);
     int r = toxav_get_peer_transmission_type(av, handle->call_index, peer);
-    if(r<0) {
-        lua_pushnil(L);
-        lua_pushnumber(L, r);
-        return 2;
-    }
-    else {
-        lua_pushnumber(L, r);
-        return 1;
-    }
+    if(r<0)
+        return throw_error(L, r);
+    lua_pushnumber(L, r);
+    return 1;
 }
 
 int lua_toxav_get_peer_id (lua_State* L) {
@@ -777,15 +808,11 @@ int lua_toxav_get_peer_id (lua_State* L) {
     int peer = luaL_checknumber(L,3);
     lua_settop(L,0);
     int r = toxav_get_peer_id(av, handle->call_index, peer);
-    if(r<0) {
-        lua_pushnil(L);
-        lua_pushnumber(L, r);
-        return 2;
-    }
-    else {
-        lua_pushnumber(L, r);
-        return 1;
-    }
+    if(r<0)
+        return throw_error(L, r);
+
+    lua_pushnumber(L, r);
+    return 1;
 }
 
 int lua_toxav_capability_supported (lua_State* L) {
@@ -822,9 +849,20 @@ int lua_toxav_get_call_state(lua_State *L) {
     lua_settop(L,0);
     ToxAvCallState state = toxav_get_call_state(av, handle->call_index);
 
-    if(state<0)
-        return 0;
     lua_pushnumber(L,state);
+    return 1;
+}
+
+int lua_toxav_change_type(lua_State *L) {
+    ToxAv *av = checkToxAv(L,1);
+    HandleCall* handle = (HandleCall*)lua_touserdata(L,2);
+    ToxAvCallType call_type = (ToxAvCallType)luaL_checknumber(L,3);
+    lua_settop(L,0);
+    int state = toxav_change_type(av, handle->call_index, call_type);
+    if(state != 0)
+        return throw_error(L, state);
+
+    lua_pushboolean(L, 1);
     return 1;
 }
 
@@ -899,11 +937,12 @@ int lua_toxav_new(lua_State* L) {
     lav->callbacks.on_ringing = 0;
     lav->callbacks.on_starting = 0;
     lav->callbacks.on_ending = 0;
-    lav->callbacks.on_error = 0;
+    //lav->callbacks.on_error = 0;
     lav->callbacks.on_request_timeout = 0;
     lav->callbacks.on_peer_timeout = 0;
     lav->callbacks.on_audio_recv = 0;
     lav->callbacks.on_video_recv = 0;
+    lav->callbacks.on_media_change = 0;
 
     reg(L, lav);
     return 1;
@@ -1004,12 +1043,14 @@ int lua_toxav_register(lua_State* L) {
     lua_setfield(L, -2, "OnStarting");
     lua_pushnumber(L, av_OnEnding);
     lua_setfield(L, -2, "OnEnding");
-    lua_pushnumber(L, av_OnError);
-    lua_setfield(L, -2, "OnError");
+    //lua_pushnumber(L, av_OnError);
+    //lua_setfield(L, -2, "OnError");
     lua_pushnumber(L, av_OnRequestTimeout);
     lua_setfield(L, -2, "OnRequestTimeout");
     lua_pushnumber(L, av_OnPeerTimeout);
     lua_setfield(L, -2, "OnPeerTimeout");
+    lua_pushnumber(L, av_OnMediaChange);
+    lua_setfield(L, -2, "OnMediaChange");
     lua_settable(L, -3);
 
     // errors

@@ -42,11 +42,12 @@ typedef struct _callbacks_t {
     int on_ringing;
     int on_starting;
     int on_ending;
-    int on_error;
+    //int on_error;
     int on_request_timeout;
     int on_peer_timeout;
     int on_audio_recv;
     int on_video_recv;
+    int on_media_change;
 } callbacks_t;
 
 typedef struct _LTox {
@@ -123,6 +124,9 @@ int lua_toxav_get_peer_id (lua_State*);
 int lua_toxav_capability_supported (lua_State*);
 int lua_toxav_set_audio_queue_limit (lua_State*);
 int lua_toxav_set_video_queue_limit (lua_State*);
+
+int lua_toxav_get_call_state(lua_State*);
+int lua_toxav_change_type(lua_State*);
 
 int lua_toxav_get_tox(lua_State*);
 
