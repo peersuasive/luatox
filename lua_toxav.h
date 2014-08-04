@@ -59,7 +59,7 @@ struct _Call;
 typedef struct _LToxAv {
     ToxAv *av;
     int max_calls;
-    ToxAvCodecSettings settings;
+    ToxAvCSettings settings;
     struct _Call *calls;
     int nb_calls;
     callbacks_t callbacks;
@@ -68,6 +68,7 @@ typedef struct _LToxAv {
 typedef struct _HandleCall {
     LToxAv *lav;
     uint32_t call_index;
+    ToxAvCSettings *csettings;
     int16_t *frame;
     int16_t *dec_frame;
     int frame_size;
@@ -119,14 +120,14 @@ int lua_toxav_send_video (lua_State*);
 int lua_toxav_send_audio (lua_State*);
 int lua_toxav_prepare_video_frame (lua_State*);
 int lua_toxav_prepare_audio_frame (lua_State*);
-int lua_toxav_get_peer_transmission_type (lua_State*);
+int lua_toxav_get_peer_csettings (lua_State*);
 int lua_toxav_get_peer_id (lua_State*);
 int lua_toxav_capability_supported (lua_State*);
-int lua_toxav_set_audio_queue_limit (lua_State*);
-int lua_toxav_set_video_queue_limit (lua_State*);
+//int lua_toxav_set_audio_queue_limit (lua_State*);
+//int lua_toxav_set_video_queue_limit (lua_State*);
 
 int lua_toxav_get_call_state(lua_State*);
-int lua_toxav_change_type(lua_State*);
+int lua_toxav_change_settings(lua_State*);
 
 int lua_toxav_get_tox(lua_State*);
 
