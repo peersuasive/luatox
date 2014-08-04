@@ -51,7 +51,7 @@ local function test_add_friends()
 
     tox2:callbackFriendRequest(accept_friend_request)
 
-    local address, str_addr = tox2:getAddress()
+    local address = tox2:getAddress()
 
     -- TODO ajouter les codes d'erreur dans la classe
     local friend, err = tox3:addFriend(address, "Gentoo")
@@ -65,9 +65,10 @@ local function test_add_friends()
 
         if (tox:isConnected() and tox2:isConnected() and tox3:isConnected() and off) then
             off = nil
+            print("all connected")
         end
 
-        if (tox2:getFriendConnectionStatus(0) == 1) and (tox3:getFriendConnectionStatus(0) == 1) then
+        if (tox2:getFriendConnectionStatus(0)) and (tox3:getFriendConnectionStatus(0)) then
             break
         end
 
