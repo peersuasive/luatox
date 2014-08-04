@@ -503,6 +503,21 @@ int lua_tox_add_friend(lua_State* L) {
     uint8_t *msg = (uint8_t*)lua_tolstring(L,3, &len);
     lua_settop(L,0);
 
+    int32_t status = tox_add_friend(tox, address, msg, len);
+    if(status<0)
+        return throw_error(L, status);
+    
+    lua_pushnumber(L, status);
+    return 1;
+}
+
+int lua_tox_add_friend_string(lua_State* L) {
+    Tox *tox = checkTox(L,1);
+    uint8_t *address = (uint8_t*)luaL_checkstring(L, 2);
+    size_t len;
+    uint8_t *msg = (uint8_t*)lua_tolstring(L,3, &len);
+    lua_settop(L,0);
+
     uint8_t data[TOX_FRIEND_ADDRESS_SIZE] = {0};
     if( ! friend_string_to_bin(address, data) )
         return throw_error(L, TOX_FAERR_BADCHECKSUM);
@@ -1287,6 +1302,7 @@ static const luaL_Reg tox_methods[] = {
 
     {"getAddress", lua_tox_get_address},
     {"addFriend", lua_tox_add_friend},
+    {"addFriendByString", lua_tox_add_friend_string},
     {"addFriendNorequest", lua_tox_add_friend_norequest},
     {"getFriendNumber", lua_tox_get_friend_number},
     {"getClientId", lua_tox_get_client_id},
