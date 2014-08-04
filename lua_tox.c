@@ -1308,6 +1308,7 @@ static const luaL_Reg tox_methods[] = {
     {"getClientId", lua_tox_get_client_id},
     {"delFriend", lua_tox_del_friend},
     {"getFriendConnectionStatus", lua_tox_get_friend_connection_status},
+    {"isOnline", lua_tox_get_friend_connection_status},
     {"friendExists", lua_tox_friend_exists},
     {"sendMessage", lua_tox_send_message},
     {"sendMessageWithid", lua_tox_send_message_withid},

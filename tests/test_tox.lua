@@ -68,7 +68,7 @@ local function test_add_friends()
             print("all connected")
         end
 
-        if (tox2:getFriendConnectionStatus(0)) and (tox3:getFriendConnectionStatus(0)) then
+        if (tox2:isOnline(0)) and (tox3:isOnline(0)) then
             break
         end
 
