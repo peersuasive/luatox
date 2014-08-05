@@ -36,6 +36,8 @@ local Bob = Tox(0);
 print("Alice:", Alice)
 print("Bob:", Bob)
 
+local to_compare = "abcdefgh"
+
 assert(bootstrap_node and Alice and Bob, "Failed to create 3 tox instances");
 
 local function test_cb()
@@ -57,14 +59,15 @@ local function test_cb()
 end
 
 local function test_init()
-    local function accept_friend_request(pub, data)
+    local function accept_friend_request(pub, msg, userdata)
+        print("to compare:", userdata)
         local pat = "gentoo"
-        if (#data == #pat) and ("gentoo"==data) then
+        if (#msg == #pat) and ("gentoo"==msg) then
             local r = Alice:addFriendNorequest(pub)
             if(r<0)then print("FAILED: addFriendNorequest" ) error("FAILED") end
         end
     end
-    Alice:callbackFriendRequest(accept_friend_request)
+    Alice:callbackFriendRequest(accept_friend_request, to_compare)
 
     local address = Alice:getAddress()
     local test, err = Bob:addFriend(address, "gentoo")
@@ -147,18 +150,18 @@ local function test_init()
     -- Callbacks
     --
 
-    local function callback_recv_invite(call_index)
-        print(" Bob receives an invitation to a call...")
+    local function callback_recv_invite(call_index, userdata)
+        print(" Bob receives an invitation to a call...", userdata)
         status_control.Bob.status = CallStatus.Ringing
         status_control.Bob.call_index = call_index
     end
 
-    local function callback_recv_ringing(call_index)
+    local function callback_recv_ringing(call_index, userdata)
         -- Alice always sends invite
         status_control.Alice.status = CallStatus.Ringing
     end
 
-    local function callback_recv_starting(call_index)
+    local function callback_recv_starting(call_index, userdata)
         status_control.Alice.status = CallStatus.InCall
         local r, e = AliceAV:prepareTransmission(status_control.Alice.call_index,
                             settings.jbufCapacity, settings.VADTolerance, false)
@@ -168,17 +171,17 @@ local function test_init()
         end
     end
 
-    local function callback_recv_ending(call_index)
+    local function callback_recv_ending(call_index, userdata)
         if (status_control.Alice.status == CallStatus.Rejected) then
-            print(" Call ended for Bob!")
+            print(" Call ended for Bob!", userdata)
             status_control.Bob.status = CallStatus.Ended
         else
-            print(" Call ended for Alice!")
+            print(" Call ended for Alice!", userdata)
             status_control.Alice.status = CallStatus.Ended
         end
     end
 
-    local function callback_call_started(call_index)
+    local function callback_call_started(call_index, userdata)
         status_control.Bob.status = CallStatus.InCall
         local r, e = BobAV:prepareTransmission(status_control.Bob.call_index, 
                             settings.jbufCapacity, settings.VADTolerance, true)
@@ -188,28 +191,28 @@ local function test_init()
         end
     end
 
-    local function callback_call_canceled(call_index)
-        print(" Call Canceled for Bob!")
+    local function callback_call_canceled(call_index, userdata)
+        print(" Call Canceled for Bob!", userdata)
         status_control.Bob.status = CallStatus.Cancel
     end
 
-    local function callback_call_rejected(call_index)
-        print(string.format(" Call rejected by Bob!\n Call ended for Alice!"))
+    local function callback_call_rejected(call_index, userdata)
+        print(string.format(" Call rejected by Bob!\n Call ended for Alice! (%s)", userdata))
         -- If Bob rejects, call is ended for alice and she sends ending
         status_control.Alice.status = CallStatus.Rejected
     end
 
-    local function callback_call_ended(call_index)
-        print(" Call ended for Bob!")
+    local function callback_call_ended(call_index, userdata)
+        print(" Call ended for Bob!", userdata)
         status_control.Bob.status = CallStatus.Ended
     end
 
-    local function callback_requ_timeout(call_index)
-        print("callback: call timed-out!");
+    local function callback_requ_timeout(call_index, userdata)
+        print("callback: call timed-out!", userdata);
         status_control.Alice.status = CallStatus.TimedOut
     end
 
-    local function callback_call_type_change_common(csettings)
+    local function callback_call_type_change_common(csettings, userdata)
         print(string.format("New settings: \n"
             .."Type: %u \n"
             .."Video bitrate: %u \n"
@@ -234,58 +237,58 @@ local function test_init()
             )
         )
     end
-    local function callback_call_type_change_Bob(call_index)
+    local function callback_call_type_change_Bob(call_index, userdata)
         local csettings = BobAv:getPeerCSettings(status_control.Bob.call_index, 0)
         callback_call_type_change_common(csettings)
     end
-    local function callback_call_type_change_Alice(call_index)
+    local function callback_call_type_change_Alice(call_index, userdata)
         local csettings = AliceAv:getPeerCSettings(status_control.Alice.call_index, 0)
         callback_call_type_change_common(csettings)
     end
  
-    local function callback_audio(call_index)
+    local function callback_audio(call_index, userdata)
         --print("audio callback")
     end
     
-    local function callback_video(call_index)
+    local function callback_video(call_index, userdata)
         --print("video callback")
     end
 
     print("registering Bob' callbacks")
     -- register Bob's callbacks
-    BobAV:registerCallback( callback_call_started,         ToxAv.cb.OnStart,    data );
-    BobAV:registerCallback( callback_call_canceled,        ToxAv.cb.OnCancel,   data );
-    BobAV:registerCallback( callback_call_rejected,        ToxAv.cb.OnReject,   data );
-    BobAV:registerCallback( callback_call_ended,           ToxAv.cb.OnEnd,      data );
-    BobAV:registerCallback( callback_recv_invite,          ToxAv.cb.OnInvite,   data );
+    BobAV:registerCallback( callback_call_started,  ToxAv.cb.OnStart, to_compare );
+    BobAV:registerCallback( callback_call_canceled, ToxAv.cb.OnCancel, to_compare );
+    BobAV:registerCallback( callback_call_rejected, ToxAv.cb.OnReject, to_compare );
+    BobAV:registerCallback( callback_call_ended,    ToxAv.cb.OnEnd, to_compare );
+    BobAV:registerCallback( callback_recv_invite,   ToxAv.cb.OnInvite, to_compare );
 
-    BobAV:registerCallback( callback_recv_ringing,         ToxAv.cb.OnRinging,  data );
-    BobAV:registerCallback( callback_recv_starting,        ToxAv.cb.OnStarting, data );
-    BobAV:registerCallback( callback_recv_ending,          ToxAv.cb.OnEnding,   data );
+    BobAV:registerCallback( callback_recv_ringing,  ToxAv.cb.OnRinging, to_compare );
+    BobAV:registerCallback( callback_recv_starting, ToxAv.cb.OnStarting, to_compare );
+    BobAV:registerCallback( callback_recv_ending,   ToxAv.cb.OnEnding, to_compare );
 
-    BobAV:registerCallback( callback_requ_timeout,         ToxAv.cb.OnRequestTimeout, data );
-    BobAV:registerCallback( callback_call_type_change_Bob, ToxAv.cb.OnMediaChange, data );
+    BobAV:registerCallback( callback_requ_timeout,  ToxAv.cb.OnRequestTimeout, to_compare );
+    BobAV:registerCallback( callback_call_type_change_Bob, ToxAv.cb.OnMediaChange, to_compare );
 
-    BobAV:registerRecvAudio( callback_audio );
-    --BobAV:registerRecvVideo( callback_video );
+    BobAV:registerRecvAudio( callback_audio, to_compare );
+    BobAV:registerRecvVideo( callback_video, to_compare );
 
     print("registering Alice' callbacks")
     -- register Alice's callbacks
-    AliceAV:registerCallback( callback_call_started,           ToxAv.cb.OnStart,    data );
-    AliceAV:registerCallback( callback_call_canceled,          ToxAv.cb.OnCancel,   data );
-    AliceAV:registerCallback( callback_call_rejected,          ToxAv.cb.OnReject,   data );
-    AliceAV:registerCallback( callback_call_ended,             ToxAv.cb.OnEnd,      data );
-    AliceAV:registerCallback( callback_recv_invite,            ToxAv.cb.OnInvite,   data );
+    AliceAV:registerCallback( callback_call_started,  ToxAv.cb.OnStart, to_compare );
+    AliceAV:registerCallback( callback_call_canceled, ToxAv.cb.OnCancel, to_compare );
+    AliceAV:registerCallback( callback_call_rejected, ToxAv.cb.OnReject, to_compare );
+    AliceAV:registerCallback( callback_call_ended,    ToxAv.cb.OnEnd,    to_compare );
+    AliceAV:registerCallback( callback_recv_invite,   ToxAv.cb.OnInvite, to_compare );
 
-    AliceAV:registerCallback( callback_recv_ringing,           ToxAv.cb.OnRinging,  data );
-    AliceAV:registerCallback( callback_recv_starting,          ToxAv.cb.OnStarting, data );
-    AliceAV:registerCallback( callback_recv_ending,            ToxAv.cb.OnEnding,   data );
+    AliceAV:registerCallback( callback_recv_ringing,  ToxAv.cb.OnRinging, to_compare );
+    AliceAV:registerCallback( callback_recv_starting, ToxAv.cb.OnStarting, to_compare );
+    AliceAV:registerCallback( callback_recv_ending,   ToxAv.cb.OnEnding, to_compare );
 
-    AliceAV:registerCallback( callback_requ_timeout,           ToxAv.cb.OnRequestTimeout,    data );
-    AliceAV:registerCallback( callback_call_type_change_Alice, ToxAv.cb.OnMediaChange, data );
+    AliceAV:registerCallback( callback_requ_timeout,  ToxAv.cb.OnRequestTimeout, to_compare );
+    AliceAV:registerCallback( callback_call_type_change_Alice, ToxAv.cb.OnMediaChange, to_compare );
 
-    AliceAV:registerRecvAudio( callback_audio );
-    --AliceAV:registerRecvVideo( callback_video );
+    AliceAV:registerRecvAudio( callback_audio, to_compare );
+    AliceAV:registerRecvVideo( callback_video, to_compare );
     
     --
     -- Call with audio only on both sides. Alice calls Bob.

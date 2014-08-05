@@ -21,8 +21,8 @@
  *
  */
 
-#include <stdlib.h>
-#include <string.h>
+#include <stdlib.h> // malloc
+#include <string.h> // memcpy
 
 #include "lua_toxav.h"
 
@@ -270,12 +270,14 @@ typedef struct _lobj {
     lua_State *L;
     LToxAv *lav;
     void *userdata;
+    size_t len;
 } LObj;
 
-LObj *createState(lua_State *L, LToxAv *lav, void *userdata) {
+LObj *createState(lua_State *L, LToxAv *lav, void *userdata, size_t len) {
     LObj *l = (LObj*)malloc(sizeof(LObj));
     l->userdata = userdata;
     l->lav = lav;
+    l->len = len;
 
     lua_pushlightuserdata(L, (void*)lav->av); // must exist, being registered with _new
     lua_gettable(L, LUA_REGISTRYINDEX);
@@ -295,8 +297,8 @@ LObj *createState(lua_State *L, LToxAv *lav, void *userdata) {
     lua_pop(L,2); // table + registry
     return l;
 }
-LObj *storeState(lua_State *L, LToxAv *lav, void *userdata) {
-    LObj *l = createState(L, lav, userdata);
+LObj *storeState(lua_State *L, LToxAv *lav, void *userdata, size_t len) {
+    LObj *l = createState(L, lav, userdata, len);
     lua_State *Lt = lua_newthread(L);
     lua_pop(L,1); // thread
     l->L = Lt;
@@ -325,125 +327,121 @@ LObj *storeState(lua_State *L, LToxAv *lav, void *userdata) {
 void callback_OnInvite(void *av, int32_t call_index, void *obj) {
     LObj *lobj = (LObj*)obj;
     LToxAv *lav = lobj->lav;
-    void *userdata = lobj->userdata;
     if(lav->callbacks.on_invite) {
         lua_pushnumber(Ls, call_index);
-        call_cb(Ls, lav, "OnInvite", 0, 1);
+        lua_pushlstring(Ls, lobj->userdata, lobj->len);
+        call_cb(Ls, lav, "OnInvite", 0, 2);
     }
 }
 
 void callback_OnStart(void *av, int32_t call_index, void *obj) {
     LObj *lobj = (LObj*)obj;
     LToxAv *lav = lobj->lav;
-    void *userdata = lobj->userdata;
     if(lav->callbacks.on_start) {
         lua_pushnumber(Ls, call_index);
-        call_cb(Ls, lav, "OnStart", 0, 1);
+        lua_pushlstring(Ls, lobj->userdata, lobj->len);
+        call_cb(Ls, lav, "OnStart", 0, 2);
     }
 }
 
 void callback_OnCancel(void *av, int32_t call_index, void *obj) {
     LObj *lobj = (LObj*)obj;
     LToxAv *lav = lobj->lav;
-    void *userdata = lobj->userdata;
     if(lav->callbacks.on_cancel) {
         lua_pushnumber(Ls, call_index);
-        call_cb(Ls, lav, "OnCancel", 0, 1);
+        lua_pushlstring(Ls, lobj->userdata, lobj->len);
+        call_cb(Ls, lav, "OnCancel", 0, 2);
     }
 }
 
 void callback_OnReject(void *av, int32_t call_index, void *obj) {
     LObj *lobj = (LObj*)obj;
     LToxAv *lav = lobj->lav;
-    void *userdata = lobj->userdata;
     if(lav->callbacks.on_reject) {
         lua_pushnumber(Ls, call_index);
-        call_cb(Ls, lav, "OnReject", 0, 1);
+        lua_pushlstring(Ls, lobj->userdata, lobj->len);
+        call_cb(Ls, lav, "OnReject", 0, 2);
     }
 }
 
 void callback_OnEnd(void *av, int32_t call_index, void *obj) {
     LObj *lobj = (LObj*)obj;
     LToxAv *lav = lobj->lav;
-    void *userdata = lobj->userdata;
     if(lav->callbacks.on_end) {
         lua_pushnumber(Ls, call_index);
-        call_cb(Ls, lav, "OnEnd", 0, 1);
+        lua_pushlstring(Ls, lobj->userdata, lobj->len);
+        call_cb(Ls, lav, "OnEnd", 0, 2);
     }
 }
 
 void callback_OnRinging(void *av, int32_t call_index, void *obj) {
     LObj *lobj = (LObj*)obj;
     LToxAv *lav = lobj->lav;
-    void *userdata = lobj->userdata;
     if(lav->callbacks.on_ringing) {
         lua_pushnumber(Ls, call_index);
-        call_cb(Ls, lav, "OnRinging", 0, 1);
+        lua_pushlstring(Ls, lobj->userdata, lobj->len);
+        call_cb(Ls, lav, "OnRinging", 0, 2);
     }
 }
 
 void callback_OnStarting(void *av, int32_t call_index, void *obj) {
     LObj *lobj = (LObj*)obj;
     LToxAv *lav = lobj->lav;
-    void *userdata = lobj->userdata;
     if(lav->callbacks.on_starting) {
         lua_pushnumber(Ls, call_index);
-        call_cb(Ls, lav, "OnStarting", 0, 1);
+        lua_pushlstring(Ls, lobj->userdata, lobj->len);
+        call_cb(Ls, lav, "OnStarting", 0, 2);
     }
 }
 
 void callback_OnEnding(void *av, int32_t call_index, void *obj) {
     LObj *lobj = (LObj*)obj;
     LToxAv *lav = lobj->lav;
-    void *userdata = lobj->userdata;
     if(lav->callbacks.on_ending) {
         lua_pushnumber(Ls, call_index);
-        call_cb(Ls, lav, "OnEnding", 0, 1);
+        lua_pushlstring(Ls, lobj->userdata, lobj->len);
+        call_cb(Ls, lav, "OnEnding", 0, 2);
     }
 }
 
 void callback_OnRequestTimeout(void *av, int32_t call_index, void *obj) {
     LObj *lobj = (LObj*)obj;
     LToxAv *lav = lobj->lav;
-    void *userdata = lobj->userdata;
     if(lav->callbacks.on_request_timeout) {
         lua_pushnumber(Ls, call_index);
-        call_cb(Ls, lav, "OnRequestTimeout", 0, 1);
+        lua_pushlstring(Ls, lobj->userdata, lobj->len);
+        call_cb(Ls, lav, "OnRequestTimeout", 0, 2);
     }
 }
 
 void callback_OnPeerTimeout(void *av, int32_t call_index, void *obj) {
     LObj *lobj = (LObj*)obj;
     LToxAv *lav = lobj->lav;
-    void *userdata = lobj->userdata;
     if(lav->callbacks.on_peer_timeout) {
         lua_pushnumber(Ls, call_index);
-        call_cb(Ls, lav, "OnPeerTimeout", 0, 1);
+        lua_pushlstring(Ls, lobj->userdata, lobj->len);
+        call_cb(Ls, lav, "OnPeerTimeout", 0, 2);
     }
 }
 
 void callback_OnMediaChange(void *av, int32_t call_index, void *obj) {
     LObj *lobj = (LObj*)obj;
     LToxAv *lav = lobj->lav;
-    void *userdata = lobj->userdata;
     if(lav->callbacks.on_media_change) {
         lua_pushnumber(Ls, call_index);
-        call_cb(Ls, lav, "OnMediaChange", 0, 1);
+        lua_pushlstring(Ls, lobj->userdata, lobj->len);
+        call_cb(Ls, lav, "OnMediaChange", 0, 2);
     }
 }
 
 int lua_toxav_register_callstate_callback(lua_State* L) {
     LToxAv *lav = checkLToxAv(L,1);
     ToxAvCallbackID cb = (ToxAvCallbackID)luaL_checknumber(L,3);
+    size_t len = 0;
     void *userdata = NULL;
     if(! lua_isnoneornil(L,4))
-        userdata = (void*)lua_tostring(L,4);
-    LObj *lobj = createState(L, lav, userdata);
-    /*
-    LObj *lobj = (LObj*)malloc(sizeof(LObj));
-    lobj->lav = lav;
-    lobj->userdata = userdata;
-    */
+        userdata = (void*)lua_tolstring(L,4, &len);
+    LObj *lobj = createState(L, lav, userdata, len);
 
     switch(cb) {
         case av_OnInvite:
@@ -533,12 +531,13 @@ int lua_toxav_audio_recv_callback(lua_State *L) {
     LToxAv *lav = checkLToxAv(L,1);
     set(L, lav, "OnAudioRecv", 2);
 
+    size_t len = 0;
     void *userdata = NULL;
     if( ! lua_isnoneornil(L,3) )
-        userdata = (void*)lua_tostring(L,3);
+        userdata = (void*)lua_tolstring(L,3, &len);
 
     // lua thread environment
-    LObj *lobj = storeState(L, lav, userdata);
+    LObj *lobj = storeState(L, lav, userdata, len);
 
     toxav_register_audio_recv_callback(lav->av, callback_OnAudioRecv, lobj);
 
@@ -567,12 +566,13 @@ int lua_toxav_video_recv_callback(lua_State *L) {
     LToxAv *lav = checkLToxAv(L,1);
     set(L, lav, "OnVideoRecv", 2);
 
+    size_t len = 0;
     void *userdata = NULL;
     if( ! lua_isnoneornil(L,3) )
-        userdata = (void*)lua_tostring(L,3);
+        userdata = (void*)lua_tolstring(L,3, &len);
 
     // lua thread environment
-    LObj *lobj = storeState(L, lav, userdata);
+    LObj *lobj = storeState(L, lav, userdata, len);
 
     toxav_register_video_recv_callback(lav->av, callback_OnVideoRecv, lobj);
 
