@@ -24,7 +24,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-
 #include "lua_toxav.h"
 
 #ifdef __cplusplus
@@ -66,7 +65,6 @@ static LToxAv *toLToxAv(lua_State* L, int index) {
     LToxAv *lav = (LToxAv*)luaL_checkudata(L, index, TOXAV_STR);
     return lav;
 }
-
 static LTox *checkLTox(lua_State* L, int index) {
     luaL_checktype(L, index, LUA_TUSERDATA);
     LTox *ltox = (LTox*)luaL_checkudata(L, index, TOX_STR);
@@ -154,169 +152,111 @@ int throw_error(lua_State *L, int32_t err) {
  *                       *
  *************************/
 
-static ToxAvCSettings *lua_get_settings(lua_State *L, int index) {
-    LToxAv *lav = toLToxAv(L,1);
-    return &lav->settings;
-}
-
-int setSettings(lua_State *L) {
-    lua_pushstring(L, "setSettings: No yet implemented");
-    lua_error(L);
-
-    ToxAvCSettings *settings = lua_get_settings(L, 1);
-    // TODO: get values from a table
-    lua_settop(L,0);
-    return 0;
-}
-int getSettings(lua_State *L) {
-    ToxAvCSettings *settings = lua_get_settings(L, 1);
-    lua_settop(L,0);
+int ltoxav_get_settings(lua_State *L, const ToxAvCSettings *settings) {
+    const ToxAvCSettings *csettings = (settings) ? settings : &av_DefaultSettings;
     lua_newtable(L);
-    lua_pushstring(L, "videoBitrate");
-    lua_pushnumber(L, settings->video_bitrate);
+    lua_pushliteral(L, "callType");
+    lua_pushnumber(L, csettings->call_type);
     lua_settable(L,-3);
-    lua_pushstring(L, "videoWidth");
-    lua_pushnumber(L, settings->max_video_width);
+
+    lua_pushliteral(L, "videoBitrate");
+    lua_pushnumber(L, csettings->video_bitrate);
     lua_settable(L,-3);
-    lua_pushstring(L, "videoHeight");
-    lua_pushnumber(L, settings->max_video_height);
+
+    lua_pushliteral(L, "videoWidth");
+    lua_pushnumber(L, csettings->max_video_width);
     lua_settable(L,-3);
-    lua_pushstring(L, "audioBitrate");
-    lua_pushnumber(L, settings->audio_bitrate);
+
+    lua_pushliteral(L, "videoHeight");
+    lua_pushnumber(L, csettings->max_video_height);
     lua_settable(L,-3);
-    lua_pushstring(L, "audioFrameDuration");
-    lua_pushnumber(L, settings->audio_frame_duration);
+
+    lua_pushliteral(L, "audioBitrate");
+    lua_pushnumber(L, csettings->audio_bitrate);
     lua_settable(L,-3);
-    lua_pushstring(L, "audioSampleRate");
-    lua_pushnumber(L, settings->audio_sample_rate);
+
+    lua_pushliteral(L, "audioFrameDuration");
+    lua_pushnumber(L, csettings->audio_frame_duration);
     lua_settable(L,-3);
-    lua_pushstring(L, "audioChannels");
-    lua_pushnumber(L, settings->audio_channels);
+
+    lua_pushliteral(L, "audioSampleRate");
+    lua_pushnumber(L, csettings->audio_sample_rate);
+    lua_settable(L,-3);
+
+    lua_pushliteral(L, "audioChannels");
+    lua_pushnumber(L, csettings->audio_channels);
     lua_settable(L,-3);
 
     // not declared in settings
-    lua_pushstring(L, "jbufCapacity");
+    lua_pushliteral(L, "jbufCapacity");
     lua_pushnumber(L, av_jbufdc);
     lua_settable(L,-3);
-    lua_pushstring(L, "VADTolerance");
+    lua_pushliteral(L, "VADTolerance");
     lua_pushnumber(L, av_VADd);
     lua_settable(L,-3);
 
     return 1;
 }
 
-int setVideoBitrate(lua_State *L) {
-    ToxAvCSettings *settings = lua_get_settings(L, 1);
-    uint32_t bitrate = luaL_checknumber(L,2);
+int getSettings(lua_State *L) {
     lua_settop(L,0);
-    settings->video_bitrate = bitrate;
-    return 0;
+    return ltoxav_get_settings(L, NULL);
 }
+
 int getVideoBitrate(lua_State *L) {
-    ToxAvCSettings *settings = lua_get_settings(L, 1);
     lua_settop(L,0);
-    lua_pushnumber(L, settings->video_bitrate);
+    lua_pushnumber(L, av_DefaultSettings.video_bitrate);
     return 1;
 }
 
-int setVideoWidth(lua_State *L) {
-    ToxAvCSettings *settings = lua_get_settings(L,1);
-    uint16_t max_video_width = luaL_checknumber(L,2);
-    lua_settop(L,0);
-    settings->max_video_width = max_video_width;
-    return 0;
-}
 int getVideoWidth(lua_State *L) {
-    ToxAvCSettings *settings = lua_get_settings(L,2);
     lua_settop(L,0);
-    lua_pushnumber(L, settings->max_video_width);
+    lua_pushnumber(L, av_DefaultSettings.max_video_width);
     return 1;
 }
 
-int setVideoHeight(lua_State *L) {
-    ToxAvCSettings *settings = lua_get_settings(L,1);
-    uint16_t max_video_height = luaL_checknumber(L,2);
-    lua_settop(L,0);
-    settings->max_video_height = max_video_height;
-    return 0;
-}
 int getVideoHeight(lua_State *L) {
-    ToxAvCSettings *settings = lua_get_settings(L,2);
     lua_settop(L,0);
-    lua_pushnumber(L, settings->max_video_height);
+    lua_pushnumber(L, av_DefaultSettings.max_video_height);
     return 1;
 }
 
-int setAudioBitrate(lua_State *L) {
-    ToxAvCSettings *settings = lua_get_settings(L,1);
-    uint32_t audio_bitrate = luaL_checknumber(L,2);
-    lua_settop(L,0);
-    settings->audio_bitrate = audio_bitrate;
-    return 0;
-}
 int getAudioBitrate(lua_State *L) {
-    ToxAvCSettings *settings = lua_get_settings(L,2);
     lua_settop(L,0);
-    lua_pushnumber(L, settings->audio_bitrate);
+    lua_pushnumber(L, av_DefaultSettings.audio_bitrate);
     return 1;
 }
 
-int setAudioFrame_duration(lua_State *L) {
-    LToxAv *lav = checkLToxAv(L, 1);
-    uint16_t audio_frame_duration = luaL_checknumber(L,2);
-    lua_settop(L,0);
-    if( audio_frame_duration != lav->settings.audio_frame_duration)
-        lav->settings.audio_frame_duration = audio_frame_duration;
-    return 0;
-}
 int getAudioFrame_duration(lua_State *L) {
-    ToxAvCSettings *settings = lua_get_settings(L,2);
     lua_settop(L,0);
-    lua_pushnumber(L, settings->audio_frame_duration);
+    lua_pushnumber(L, av_DefaultSettings.audio_frame_duration);
     return 1;
 }
 
-int setAudioSample_rate(lua_State *L) {
-    //ToxAvCSettings *settings = lua_get_settings(L,1);
-    LToxAv *lav = checkLToxAv(L, 1);
-    uint32_t audio_sample_rate = luaL_checknumber(L,2);
-    lua_settop(L,0);
-    if( audio_sample_rate != lav->settings.audio_sample_rate)
-        lav->settings.audio_sample_rate = audio_sample_rate;
-    return 0;
-}
 int getAudioSample_rate(lua_State *L) {
-    ToxAvCSettings *settings = lua_get_settings(L,2);
     lua_settop(L,0);
-    lua_pushnumber(L, settings->audio_sample_rate);
+    lua_pushnumber(L, av_DefaultSettings.audio_sample_rate);
     return 1;
 }
 
-int setAudioChannels(lua_State *L) {
-    ToxAvCSettings *settings = lua_get_settings(L,1);
-    uint32_t audio_channels = luaL_checknumber(L,2);
-    lua_settop(L,0);
-    settings->audio_channels = audio_channels;
-    return 0;
-}
 int getAudioChannels(lua_State *L) {
-    ToxAvCSettings *settings = lua_get_settings(L,2);
     lua_settop(L,0);
-    lua_pushnumber(L, settings->audio_channels);
+    lua_pushnumber(L, av_DefaultSettings.audio_channels);
     return 1;
 }
 
 // not in settings
 int getJbufCapacity(lua_State *L) {
+    lua_settop(L,0);
     lua_pushnumber(L, av_jbufdc);
     return 1;
 }
 
 int getVADTolerence(lua_State *L) {
+    lua_settop(L,0);
     lua_pushnumber(L, av_VADd);
     return 1;
 }
-
 
 /*************************
  *                       *
@@ -326,99 +266,166 @@ int getVADTolerence(lua_State *L) {
 
 // TODO: API changes now gives *av, avoid using arg and use *av instead
 
+typedef struct _lobj {
+    lua_State *L;
+    LToxAv *lav;
+    void *userdata;
+} LObj;
+
+LObj *createState(lua_State *L, LToxAv *lav, void *userdata) {
+    LObj *l = (LObj*)malloc(sizeof(LObj));
+    l->userdata = userdata;
+    l->lav = lav;
+
+    lua_pushlightuserdata(L, (void*)lav->av); // must exist, being registered with _new
+    lua_gettable(L, LUA_REGISTRYINDEX);
+    if (lua_isnil(L,-1))
+        luaL_error(L, "Can't get object table from registry -- not reg'ed ?");
+
+    lua_getfield(L, -1, "userdata");
+    if ( lua_isnil(L, -1) ) { // create new table
+        lua_pop(L,1); // nil
+        lua_createtable(L,0,20);
+        lua_setfield(L, -2, "userdata");
+        lua_getfield(L, -1, "userdata");
+    }
+    lua_pushlightuserdata(L, (void*)l);
+    lua_pushlightuserdata(L, (void*)l);
+    lua_settable(L,-3);
+    lua_pop(L,2); // table + registry
+    return l;
+}
+LObj *storeState(lua_State *L, LToxAv *lav, void *userdata) {
+    LObj *l = createState(L, lav, userdata);
+    lua_State *Lt = lua_newthread(L);
+    lua_pop(L,1); // thread
+    l->L = Lt;
+
+    // store on registry, to be freed by _gc
+    lua_pushlightuserdata(L, (void*)lav->av); // must exist, being registered with _new
+    lua_gettable(L, LUA_REGISTRYINDEX);
+    if (lua_isnil(L,-1))
+        luaL_error(L, "Can't get object table from registry -- not reg'ed ?");
+
+    lua_getfield(L, -1, "lthreads");
+    if ( lua_isnil(L, -1) ) { // create new table
+        lua_pop(L,1);
+        lua_createtable(L,0, 4);
+        lua_setfield(L, -2, "lthreads");
+        lua_getfield(L, -1, "lthreads");
+    }
+    lua_pushlightuserdata(L, (void*)Lt);
+    lua_pushlightuserdata(L, (void*)Lt);
+    lua_settable(L,-3);
+    lua_pop(L,2); // table + registry
+    return l;
+}
+
 // when invited, call_index is provided here
-void callback_OnInvite(void *av, int32_t call_index, void *arg) {
-    LToxAv *lav = (LToxAv*)arg;
+void callback_OnInvite(void *av, int32_t call_index, void *obj) {
+    LObj *lobj = (LObj*)obj;
+    LToxAv *lav = lobj->lav;
+    void *userdata = lobj->userdata;
     if(lav->callbacks.on_invite) {
         lua_pushnumber(Ls, call_index);
         call_cb(Ls, lav, "OnInvite", 0, 1);
     }
 }
 
-void callback_OnStart(void *av, int32_t call_index, void* arg) {
-    LToxAv *lav = (LToxAv*)arg;
+void callback_OnStart(void *av, int32_t call_index, void *obj) {
+    LObj *lobj = (LObj*)obj;
+    LToxAv *lav = lobj->lav;
+    void *userdata = lobj->userdata;
     if(lav->callbacks.on_start) {
         lua_pushnumber(Ls, call_index);
         call_cb(Ls, lav, "OnStart", 0, 1);
     }
 }
 
-void callback_OnCancel(void *av, int32_t call_index, void* arg) {
-    LToxAv *lav = (LToxAv*)arg;
+void callback_OnCancel(void *av, int32_t call_index, void *obj) {
+    LObj *lobj = (LObj*)obj;
+    LToxAv *lav = lobj->lav;
+    void *userdata = lobj->userdata;
     if(lav->callbacks.on_cancel) {
         lua_pushnumber(Ls, call_index);
         call_cb(Ls, lav, "OnCancel", 0, 1);
     }
 }
 
-void callback_OnReject(void *av, int32_t call_index, void *arg) {
-    LToxAv *lav = (LToxAv*)arg;
+void callback_OnReject(void *av, int32_t call_index, void *obj) {
+    LObj *lobj = (LObj*)obj;
+    LToxAv *lav = lobj->lav;
+    void *userdata = lobj->userdata;
     if(lav->callbacks.on_reject) {
         lua_pushnumber(Ls, call_index);
         call_cb(Ls, lav, "OnReject", 0, 1);
     }
 }
 
-void callback_OnEnd(void *av, int32_t call_index, void *arg) {
-    LToxAv *lav = (LToxAv*)arg;
+void callback_OnEnd(void *av, int32_t call_index, void *obj) {
+    LObj *lobj = (LObj*)obj;
+    LToxAv *lav = lobj->lav;
+    void *userdata = lobj->userdata;
     if(lav->callbacks.on_end) {
         lua_pushnumber(Ls, call_index);
         call_cb(Ls, lav, "OnEnd", 0, 1);
     }
 }
 
-void callback_OnRinging(void *av, int32_t call_index, void *arg) {
-    LToxAv *lav = (LToxAv*)arg;
+void callback_OnRinging(void *av, int32_t call_index, void *obj) {
+    LObj *lobj = (LObj*)obj;
+    LToxAv *lav = lobj->lav;
+    void *userdata = lobj->userdata;
     if(lav->callbacks.on_ringing) {
         lua_pushnumber(Ls, call_index);
         call_cb(Ls, lav, "OnRinging", 0, 1);
     }
 }
 
-void callback_OnStarting(void *av, int32_t call_index, void *arg) {
-    LToxAv *lav = (LToxAv*)arg;
+void callback_OnStarting(void *av, int32_t call_index, void *obj) {
+    LObj *lobj = (LObj*)obj;
+    LToxAv *lav = lobj->lav;
+    void *userdata = lobj->userdata;
     if(lav->callbacks.on_starting) {
         lua_pushnumber(Ls, call_index);
         call_cb(Ls, lav, "OnStarting", 0, 1);
     }
 }
 
-void callback_OnEnding(void *av, int32_t call_index, void *arg) {
-    LToxAv *lav = (LToxAv*)arg;
+void callback_OnEnding(void *av, int32_t call_index, void *obj) {
+    LObj *lobj = (LObj*)obj;
+    LToxAv *lav = lobj->lav;
+    void *userdata = lobj->userdata;
     if(lav->callbacks.on_ending) {
         lua_pushnumber(Ls, call_index);
         call_cb(Ls, lav, "OnEnding", 0, 1);
     }
 }
 
-/* API changes -- replaced by what ?
-void callback_OnError(void *av, int32_t call_index, void *arg) {
-    LToxAv *lav = (LToxAv*)arg;
-    if(lav->callbacks.on_error) {
-        lua_pushnumber(Ls, call_index);
-        call_cb(Ls, lav, "OnError", 0, 1);
-    }
-}
-*/
-
-void callback_OnRequestTimeout(void *av, int32_t call_index, void *arg) {
-    LToxAv *lav = (LToxAv*)arg;
+void callback_OnRequestTimeout(void *av, int32_t call_index, void *obj) {
+    LObj *lobj = (LObj*)obj;
+    LToxAv *lav = lobj->lav;
+    void *userdata = lobj->userdata;
     if(lav->callbacks.on_request_timeout) {
         lua_pushnumber(Ls, call_index);
         call_cb(Ls, lav, "OnRequestTimeout", 0, 1);
     }
 }
 
-void callback_OnPeerTimeout(void *av, int32_t call_index, void *arg) {
-    LToxAv *lav = (LToxAv*)arg;
+void callback_OnPeerTimeout(void *av, int32_t call_index, void *obj) {
+    LObj *lobj = (LObj*)obj;
+    LToxAv *lav = lobj->lav;
+    void *userdata = lobj->userdata;
     if(lav->callbacks.on_peer_timeout) {
         lua_pushnumber(Ls, call_index);
         call_cb(Ls, lav, "OnPeerTimeout", 0, 1);
     }
 }
 
-void callback_OnMediaChange(void *av, int32_t call_index, void *arg) {
-    LToxAv *lav = (LToxAv*)arg;
+void callback_OnMediaChange(void *av, int32_t call_index, void *obj) {
+    LObj *lobj = (LObj*)obj;
+    LToxAv *lav = lobj->lav;
+    void *userdata = lobj->userdata;
     if(lav->callbacks.on_media_change) {
         lua_pushnumber(Ls, call_index);
         call_cb(Ls, lav, "OnMediaChange", 0, 1);
@@ -427,119 +434,151 @@ void callback_OnMediaChange(void *av, int32_t call_index, void *arg) {
 
 int lua_toxav_register_callstate_callback(lua_State* L) {
     LToxAv *lav = checkLToxAv(L,1);
-    ToxAvCallbackID cb = (ToxAvCallbackID)luaL_checknumber(L,2);
+    ToxAvCallbackID cb = (ToxAvCallbackID)luaL_checknumber(L,3);
+    void *userdata = NULL;
+    if(! lua_isnoneornil(L,4))
+        userdata = (void*)lua_tostring(L,4);
+    LObj *lobj = createState(L, lav, userdata);
+    /*
+    LObj *lobj = (LObj*)malloc(sizeof(LObj));
+    lobj->lav = lav;
+    lobj->userdata = userdata;
+    */
+
     switch(cb) {
         case av_OnInvite:
-            set(L, lav, "OnInvite", 3);
+            set(L, lav, "OnInvite", 2);
             lav->callbacks.on_invite = 1;
-            toxav_register_callstate_callback(lav->av, callback_OnInvite, av_OnInvite, lav);
+            toxav_register_callstate_callback(lav->av, callback_OnInvite, av_OnInvite, lobj);
             break;
         case av_OnStart:
-            set(L, lav, "OnStart", 3);
+            set(L, lav, "OnStart", 2);
             lav->callbacks.on_start = 1;
-            toxav_register_callstate_callback(lav->av, callback_OnStart, av_OnStart, lav);
+            toxav_register_callstate_callback(lav->av, callback_OnStart, av_OnStart, lobj);
             break;
         case av_OnCancel:
-            set(L, lav, "OnCancel", 3);
+            set(L, lav, "OnCancel", 2);
             lav->callbacks.on_cancel = 1;
-            toxav_register_callstate_callback(lav->av, callback_OnCancel, av_OnCancel, lav);
+            toxav_register_callstate_callback(lav->av, callback_OnCancel, av_OnCancel, lobj);
             break;
         case av_OnReject:
-            set(L, lav, "OnReject", 3);
+            set(L, lav, "OnReject", 2);
             lav->callbacks.on_reject = 1;
-            toxav_register_callstate_callback(lav->av, callback_OnReject, av_OnReject, lav);
+            toxav_register_callstate_callback(lav->av, callback_OnReject, av_OnReject, lobj);
             break;
         case av_OnEnd:
-            set(L, lav, "OnEnd", 3);
+            set(L, lav, "OnEnd", 2);
             lav->callbacks.on_end = 1;
-            toxav_register_callstate_callback(lav->av, callback_OnEnd, av_OnEnd, lav);
+            toxav_register_callstate_callback(lav->av, callback_OnEnd, av_OnEnd, lobj);
             break;
         case av_OnRinging:
-            set(L, lav, "OnRinging", 3);
+            set(L, lav, "OnRinging", 2);
             lav->callbacks.on_ringing = 1;
-            toxav_register_callstate_callback(lav->av, callback_OnRinging, av_OnRinging, lav);
+            toxav_register_callstate_callback(lav->av, callback_OnRinging, av_OnRinging, lobj);
             break;
         case av_OnStarting:
-            set(L, lav, "OnStarting", 3);
+            set(L, lav, "OnStarting", 2);
             lav->callbacks.on_starting = 1;
-            toxav_register_callstate_callback(lav->av, callback_OnStarting, av_OnStarting, lav);
+            toxav_register_callstate_callback(lav->av, callback_OnStarting, av_OnStarting, lobj);
             break;
         case av_OnEnding:
-            set(L, lav, "OnEnding", 3);
+            set(L, lav, "OnEnding", 2);
             lav->callbacks.on_ending = 1;
-            toxav_register_callstate_callback(lav->av, callback_OnEnding, av_OnEnding, lav);
+            toxav_register_callstate_callback(lav->av, callback_OnEnding, av_OnEnding, lobj);
             break;
-        //case av_OnError:
-        //    set(L, lav, "OnError", 3);
-        //    lav->callbacks.on_error = 1;
-        //    toxav_register_callstate_callback(lav->av, callback_OnError, av_OnError, lav);
-        //    break;
         case av_OnRequestTimeout:
-            set(L, lav, "OnRequestTimeout", 3);
+            set(L, lav, "OnRequestTimeout", 2);
             lav->callbacks.on_request_timeout = 1;
-            toxav_register_callstate_callback(lav->av, callback_OnRequestTimeout, av_OnRequestTimeout, lav);
+            toxav_register_callstate_callback(lav->av, callback_OnRequestTimeout, av_OnRequestTimeout, lobj);
             break;
         case av_OnPeerTimeout:
-            set(L, lav, "OnPeerTimeout", 3);
+            set(L, lav, "OnPeerTimeout", 2);
             lav->callbacks.on_peer_timeout = 1;
-            toxav_register_callstate_callback(lav->av, callback_OnPeerTimeout, av_OnPeerTimeout, lav);
+            toxav_register_callstate_callback(lav->av, callback_OnPeerTimeout, av_OnPeerTimeout, lobj);
             break;
         case av_OnMediaChange:
-            set(L, lav, "av_OnMediaChange", 3);
+            set(L, lav, "av_OnMediaChange", 2);
             lav->callbacks.on_media_change = 1;
-            toxav_register_callstate_callback(lav->av, callback_OnMediaChange, av_OnMediaChange, lav);
+            toxav_register_callstate_callback(lav->av, callback_OnMediaChange, av_OnMediaChange, lobj);
             break;
-
     }
     lua_settop(L,0);
     return 0;
 }
 
-// FIXME: untested
-void callback_OnAudioRecv(ToxAv *av, int32_t call_index, int16_t *data, int length, void *userdata) {
-    if(retrieve(Ls, av, "OnAudioRecvData")) {
-        LToxAv *lav = checkLToxAv(Ls,1);
-        lua_pop(Ls,1);
+/**
+ * toxAV uses threads to handle audio and video frames
+ * as Lua isn't thread safe, we create coroutines for these callbacks
+ * and store them in the registry
+ * the struct is provided to the callback as a userdata, like for the other callbacks
+ */
 
-        if(lav->callbacks.on_audio_recv) {
-            lua_pushnumber(Ls, call_index);
-            call_cb(Ls, lav, "OnAudioRecv", 0, 1);
-        }
+void callback_OnAudioRecv(ToxAv *av, int32_t call_index, int16_t *data, int length, void *obj) {
+    LObj *lobj = (LObj*)obj;
+    lua_State *L = (lobj->L);
+    if(!L)
+        luaL_error(Ls, "OnAudioRecv: failed to get lua_State.");
+
+    LToxAv *lav = lobj->lav;
+    if(!lav)
+        luaL_error(Ls, "internal error: Couldn't get LToxAv from registry.");
+    
+    if(lav->callbacks.on_audio_recv) {
+        lua_pushnumber(L, call_index);
+        call_cb(L, lav, "OnAudioRecv", 0, 1);
     }
 }
+
 int lua_toxav_audio_recv_callback(lua_State *L) {
     LToxAv *lav = checkLToxAv(L,1);
     set(L, lav, "OnAudioRecv", 2);
-    store(L, lav->av, "OnAudioRecvData", lav);
-    // TODO: get userdata
+
     void *userdata = NULL;
-    toxav_register_audio_recv_callback(lav->av, callback_OnAudioRecv, userdata);
+    if( ! lua_isnoneornil(L,3) )
+        userdata = (void*)lua_tostring(L,3);
+
+    // lua thread environment
+    LObj *lobj = storeState(L, lav, userdata);
+
+    toxav_register_audio_recv_callback(lav->av, callback_OnAudioRecv, lobj);
+
     lua_settop(L,0);
+
+    lav->callbacks.on_audio_recv = 1;
     return 0;
 }
 
-void callback_OnVideoRecv(ToxAv *av, int32_t call_index, vpx_image_t *data, void *userdata) {
-    if(retrieve(Ls, av, "OnVideoRecvData")) {
-        LToxAv *lav = checkLToxAv(Ls,1);
-        lua_pop(Ls,1);
+void callback_OnVideoRecv(ToxAv *av, int32_t call_index, vpx_image_t *data, void *obj) {
+    LObj *lobj = (LObj*)obj;
+    lua_State *L = (lobj->L);
+    if(!L)
+        luaL_error(Ls, "OnVideoRecv: failed to get lua_State.");
 
-        if(lav->callbacks.on_video_recv) {
-            lua_pushnumber(Ls, call_index);
-            call_cb(Ls, lav, "OnVideoRecv", 0, 1);
-        }
+    LToxAv *lav = lobj->lav;
+    if(!lav)
+        luaL_error(Ls, "internal error: Couldn't get LToxAv from registry.");
+
+    if(lav->callbacks.on_video_recv) {
+        lua_pushnumber(L, call_index);
+        call_cb(L, lav, "OnVideoRecv", 0, 1);
     }
 }
 int lua_toxav_video_recv_callback(lua_State *L) {
-    lua_pushstring(L, "luatoxav: video recv callback: not implemented");
-    lua_error(L);
-
     LToxAv *lav = checkLToxAv(L,1);
     set(L, lav, "OnVideoRecv", 2);
-    store(L, lav->av, "OnVideoRecvData", lav);
-    // TODO: get userdata
+
     void *userdata = NULL;
-    toxav_register_video_recv_callback(lav->av, callback_OnVideoRecv, userdata);
+    if( ! lua_isnoneornil(L,3) )
+        userdata = (void*)lua_tostring(L,3);
+
+    // lua thread environment
+    LObj *lobj = storeState(L, lav, userdata);
+
+    toxav_register_video_recv_callback(lav->av, callback_OnVideoRecv, lobj);
+
     lua_settop(L,0);
+
+    lav->callbacks.on_video_recv = 1;
     return 0;
 }
 
@@ -567,8 +606,11 @@ HandleCall *newCall(LToxAv *lav, int32_t call_index, ToxAvCSettings *csettings) 
 //
 
 ToxAvCSettings *parseSettings(lua_State *L, int index) {
-    if (! lua_istable(L,index) )
-        luaL_argerror(L, index-1, "Expected LToxAvCSettings.");
+    if (! lua_istable(L,index) ) {
+        const char *msg = 
+            lua_pushfstring(L, "Expected LToxAvCSettings, got %s", lua_typename(L, lua_type(L,index)));
+        luaL_argerror(L, index, msg);
+    }
 
     ToxAvCSettings *settings = (ToxAvCSettings*)malloc(sizeof(ToxAvCSettings));
 
@@ -608,7 +650,6 @@ int lua_toxav_call(lua_State* L) {
     LToxAv *lav = checkLToxAv(L, 1);
     int user = luaL_checknumber(L,2);
     ToxAvCSettings *csettings = parseSettings(L, 3);
-
     int ringing_seconds = luaL_checknumber(L,4);
     lua_settop(L,0);
     int32_t call_index;
@@ -742,50 +783,9 @@ int lua_toxav_kill_transmission(lua_State* L) {
 
     if( r!= 0)
         return throw_error(L, r);
-    lua_pushboolean(L, 1);
+    lua_pushnumber(L, call_index);
+    //lua_pushboolean(L, 1);
     return 1;
-}
-
-// NOTE: API changes, A/V are now callbacks
-/*
-int lua_toxav_recv_video (lua_State* L) {
-    lua_pushstring(L, "recvVideo: no implemented");
-    lua_error(L);
-
-    ToxAv *av = checkToxAv(L,1);
-    int32_t call_index = luaL_checknumber(L,2);
-    lua_settop(L,0);
-    // TODO
-    vpx_image_t *output;
-    int r = toxav_recv_video(av, call_index, &output);
-    // return table of pointer ?
-    // what's image_t made for ?
-    if(r==0) {
-        lua_newtable(L);
-        lua_pushnumber(L, output->w);
-        lua_setfield(L,-2, "w");
-        // ...
-        return 1;
-    }
-    else {
-        lua_pushnil(L);
-        lua_pushnumber(L, r);
-        return 2;
-    }
-}
-
-// return PCM_frame, dec_frame_length
-int lua_toxav_recv_audio(lua_State* L) {
-    ToxAv *av = checkToxAv(L,1);
-    HandleCall* handle = (HandleCall*)lua_touserdata(L,2);
-    lua_settop(L,0);
-    int r = toxav_recv_audio(av, handle->call_index, handle->frame_size, handle->dec_frame);
-    if(r<0)
-        lua_pushnil(L);
-    else
-        lua_pushlightuserdata(L, handle->dec_frame);
-    lua_pushnumber(L, r);
-    return 2;
 }
 
 int lua_toxav_send_video (lua_State* L) {
@@ -796,7 +796,6 @@ int lua_toxav_send_video (lua_State* L) {
     lua_settop(L,0);
     return 0;
 }
-*/
 
 // TODO: should merge prepare_audio and send_audio
 int lua_toxav_send_audio (lua_State* L) {
@@ -828,14 +827,16 @@ int lua_toxav_prepare_audio_frame(lua_State* L) {
     HandleCall* handle = (HandleCall*)lua_touserdata(L,2);
     int payload_size = luaL_checknumber(L,3);
     //int16_t *frame = (int16_t*)lua_touserdata(L,4);
+
     if(lua_type(L,4) == LUA_TUSERDATA) {
         handle->frame = (int16_t*)lua_touserdata(L,4);
-    }
-    else {
+
+    } else {
         // FIXME: do we need this ? need to get sure it's int16_t
         handle->from_string = 1;
         if(! handle->frame)
             handle->frame = (int16_t*)malloc(handle->frame_size * sizeof(int16_t));
+
         size_t len;
         const void* f = lua_tolstring(L,4, &len);
         memcpy(handle->frame, f, (len<handle->frame_size) ? len : handle->frame_size);
@@ -846,6 +847,7 @@ int lua_toxav_prepare_audio_frame(lua_State* L) {
 
     if(r<=0)
         return throw_error(L, r);
+
     lua_pushnumber(L, r);
     return 1;
 }
@@ -855,10 +857,12 @@ int lua_toxav_get_peer_csettings (lua_State* L) {
     HandleCall* handle = (HandleCall*)lua_touserdata(L,2);
     int peer = luaL_checknumber(L,3);
     lua_settop(L,0);
-    int r = toxav_get_peer_csettings(av, handle->call_index, peer, handle->csettings);
+
+    ToxAvCSettings csettings;
+    int r = toxav_get_peer_csettings(av, handle->call_index, peer, &csettings);
     if(r<0)
         return throw_error(L, r);
-    lua_pushnumber(L, r);
+    ltoxav_get_settings(L, &csettings);
     return 1;
 }
 
@@ -884,26 +888,6 @@ int lua_toxav_capability_supported (lua_State* L) {
     lua_pushboolean(L,r);
     return 1;
 }
-
-/*
-int lua_toxav_set_audio_queue_limit (lua_State* L) {
-    ToxAv *av = checkToxAv(L,1);
-    HandleCall* handle = (HandleCall*)lua_touserdata(L,2);
-    int64_t limit = luaL_checknumber(L,3);
-    lua_settop(L,0);
-    toxav_set_audio_queue_limit(av, handle->call_index, limit);
-    return 0;
-}
-
-int lua_toxav_set_video_queue_limit (lua_State* L) {
-    ToxAv *av = checkToxAv(L,1);
-    HandleCall* handle = (HandleCall*)lua_touserdata(L,2);
-    int64_t limit = luaL_checknumber(L,3);
-    lua_settop(L,0);
-    toxav_set_video_queue_limit(av, handle->call_index, limit);
-    return 0;
-}
-*/
 
 int lua_toxav_get_call_state(lua_State *L) {
     ToxAv *av = checkToxAv(L,1);
@@ -971,6 +955,36 @@ int lua_toxav_gc(lua_State* L) {
     }
     free(lav->calls);
 
+    // get associated table
+    lua_pushlightuserdata(L, (void*)lav->av);
+    lua_gettable(L, LUA_REGISTRYINDEX);
+
+    if(! lua_isnil(L,-1)) {
+        // free callbacks datum
+        lua_getfield(L, -1, "userdata");
+        if ( ! lua_isnil(L, -1) ) {
+            lua_pushnil(L);
+            while(lua_next(L, -2)) {
+                LObj *obj = (LObj*)lua_topointer(L,-1);
+                if(obj)
+                    free(obj);
+                lua_pushnil(L);
+                lua_rawset(L, -4);
+            }
+        }
+        lua_pop(L,1);
+
+        // free threads, not sure this is required anyway
+        lua_getfield(L, -1, "lthreads");
+        if ( ! lua_isnil(L, -1) ) {
+            lua_pushnil(L);
+            while(lua_next(L, -2)) {
+                lua_pushnil(L);
+                lua_rawset(L,-4);
+            }
+        }
+        lua_pop(L,1);
+    }
     // clear registry
     unreg(L, lav);
 
@@ -1006,7 +1020,6 @@ int lua_toxav_new(lua_State* L) {
     lav->callbacks.on_ringing = 0;
     lav->callbacks.on_starting = 0;
     lav->callbacks.on_ending = 0;
-    //lav->callbacks.on_error = 0;
     lav->callbacks.on_request_timeout = 0;
     lav->callbacks.on_peer_timeout = 0;
     lav->callbacks.on_audio_recv = 0;
@@ -1014,6 +1027,7 @@ int lua_toxav_new(lua_State* L) {
     lav->callbacks.on_media_change = 0;
 
     reg(L, lav);
+    reg(L, lav->av);
     return 1;
 }
 int lua_toxav_new_self(lua_State* L) {
@@ -1024,24 +1038,16 @@ int lua_toxav_new_self(lua_State* L) {
 static const luaL_Reg toxav_methods[] = {
     {"new", lua_toxav_new},
 
-    {"setSettings", setSettings},
     {"getSettings", getSettings},
-    {"setVideoBitrate", setVideoBitrate},
     {"getVideoBitrate", getVideoBitrate},
-    {"setVideoWidth", setVideoWidth},
     {"getVideoWidth", getVideoWidth},
-    {"setVideoHeight", setVideoHeight},
     {"getVideoHeight", getVideoHeight},
-    {"setAudioBitrate", setAudioBitrate},
     {"getAudioBitrate", getAudioBitrate},
-    {"setAudioFrame_duration", setAudioFrame_duration},
     {"getAudioFrame_duration", getAudioFrame_duration},
-    {"setAudioSample_rate", setAudioSample_rate},
     {"getAudioSample_rate", getAudioSample_rate},
-    {"setAudioChannels", setAudioChannels},
     {"getAudioChannels", getAudioChannels},
-    //{"setJbufCapacity", setJbufCapacity},
-    //{"getJbufCapacity", getJbufCapacity},
+    {"getJbufCapacity", getJbufCapacity},
+    {"getVADTolerence", getVADTolerence},
 
     {"call", lua_toxav_call},
     {"hangup", lua_toxav_hangup},
@@ -1051,23 +1057,20 @@ static const luaL_Reg toxav_methods[] = {
     {"stopCall", lua_toxav_stop_call},
     {"prepareTransmission", lua_toxav_prepare_transmission},
     {"killTransmission", lua_toxav_kill_transmission},
-    //{"recvVideo", lua_toxav_recv_video},
-    //{"recvAudio", lua_toxav_recv_audio},
+
     {"sendVideo", lua_toxav_send_video},
     {"sendAudio", lua_toxav_send_audio},
     {"prepareVideoFrame", lua_toxav_prepare_video_frame},
     {"prepareAudioFrame", lua_toxav_prepare_audio_frame},
-    {"getPeerTransmissionType", lua_toxav_get_peer_csettings},
+    {"getPeerCSettings", lua_toxav_get_peer_csettings},
     {"getPeerId", lua_toxav_get_peer_id},
     {"capabilitySupported", lua_toxav_capability_supported},
-    //{"setAudioQueueLimit", lua_toxav_set_audio_queue_limit},
-    //{"setVideoQueueLimit", lua_toxav_set_video_queue_limit},
 
     {"getCallState", lua_toxav_get_call_state},
 
     {"registerCallback", lua_toxav_register_callstate_callback},
-    {"recvVideo", lua_toxav_audio_recv_callback},
-    {"recvAudio", lua_toxav_video_recv_callback},
+    {"registerRecvAudio", lua_toxav_audio_recv_callback},
+    {"registerRecvVideo", lua_toxav_video_recv_callback},
     
     {NULL, NULL}
 };
@@ -1112,8 +1115,6 @@ int lua_toxav_register(lua_State* L) {
     lua_setfield(L, -2, "OnStarting");
     lua_pushnumber(L, av_OnEnding);
     lua_setfield(L, -2, "OnEnding");
-    //lua_pushnumber(L, av_OnError);
-    //lua_setfield(L, -2, "OnError");
     lua_pushnumber(L, av_OnRequestTimeout);
     lua_setfield(L, -2, "OnRequestTimeout");
     lua_pushnumber(L, av_OnPeerTimeout);
@@ -1179,17 +1180,20 @@ int lua_toxav_register(lua_State* L) {
     lua_newtable(L);
     lua_pushstring(L, "inviting");
     lua_pushnumber(L, av_CallInviting);
+    lua_settable(L,-3);
     lua_pushstring(L, "starting");
     lua_pushnumber(L, av_CallStarting);
+    lua_settable(L,-3);
     lua_pushstring(L, "active");
     lua_pushnumber(L, av_CallActive);
+    lua_settable(L,-3);
     lua_pushstring(L, "hold");
     lua_pushnumber(L, av_CallHold);
+    lua_settable(L,-3);
     lua_pushstring(L, "hangedUp");
     lua_pushnumber(L, av_CallHanged_up);
     lua_settable(L,-3);
     lua_settable(L,-3);
-
 
     // capabilities
     lua_pushstring(L, "capabilities");

@@ -68,6 +68,7 @@ typedef struct _LToxAv {
 typedef struct _HandleCall {
     LToxAv *lav;
     uint32_t call_index;
+    int peer;
     ToxAvCSettings *csettings;
     int16_t *frame;
     int16_t *dec_frame;
