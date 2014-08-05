@@ -195,6 +195,7 @@ end
 local file_sent, sendf_ok = 0, 0
 local function file_print_control(friendnumber, send_receive, filenumber, control_type, data)
     if (send_receive == 0) and (control_type == Tox.control.FINISHED) then
+        tox3:fileSendControl(friendnumber, 1, filenumber, Tox.control.FINISHED)
         file_sent = 1
     end
 
@@ -219,6 +220,7 @@ local function file_request_accept(friendnumber, filenumber, filesize, filename)
         print("ERROR: couldn't send file control from callback!")
         error("ERROR")
     end
+    tox2:fileSendControl(friendnumber, 1, filenumber, Tox.control.ACCEPT)
 end
 
 local function test_send_file()
@@ -257,7 +259,7 @@ local function test_send_file()
             ) do
                 if (totalf_size <= fpiece_size) then
                     sendf_ok = 0
-                    local r = tox2:fileSendControl(0, 0, fnum, Tox.control.FINISHED, nil)
+                    local r = tox2:fileSendControl(0, 0, fnum, Tox.control.FINISHED)
                     if not(r) then
                         print("ERROR: couldn't send FINISH signal!")
                         error("ERROR")
