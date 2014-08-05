@@ -64,7 +64,7 @@ INC += -I.
 
 CFLAGS += -std=c11
 CFLAGS += -fPIC -Wall -Wno-unused-variable -Wno-unused-function
-ifeq(${DEBUG},yes)
+ifeq (${DEBUG},yes)
 	CFLAGS += -g
 else
 	CFLAGS += -O2
