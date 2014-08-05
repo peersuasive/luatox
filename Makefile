@@ -1,55 +1,121 @@
+## TODO: guess architecture and OS
+##       and cross compile from here
+
 CC = gcc
 LD = $(CC)
 RM = rm
 STRIP = strip
 
+S := @
+
+DEBUG ?= yes
+
 LUA52=0
 
-INC = -I. `pkg-config --cflags libtoxcore`
+STATIC ?= yes
+
 ifeq ($(LUA52),1)
 	INC += `pkg-config --cflags lua5.2`
 else
 	INC += `pkg-config --cflags lua5.1`
 endif
 
-CFLAGS = -std=c99
+ifeq (${STATIC},yes)
+	SO   = so
+	A    = a
+	DEST = lin
+	HOST = x86_64-linux-gnu
+	## if x86_64
+	LDFLAGS += -fPIC
+	PIC  = -with-pic
+	
+	STATIC_TOX = -Wl,-Bstatic -ltoxcore
+	STATIC_TOX += -lsodium
+	#STATIC_TOX += -Wl,-Bdynamic -lsodium
+
+	STATIC_TOXAV = -Wl,-Bstatic -ltoxav $(STATIC_TOX)
+
+
+	STATIC_TOXDNS = -Wl,-Bstatic -ltoxdns $(STATIC_TOX)
+
+	LIBS  = -Wl,-Bdynamic -lm
+	#LIB_TOX = -lsodium
+	LIB_TOXAV = -Wl,-Bdynamic -lopus -lvpx
+
+	STATIC_FLAGS = -L./toxcore/build/$(DEST)/lib
+	STATIC_FLAGS += -L./libsodium/build/$(DEST)/lib
+
+	TOX    = toxcore/build/$(DEST)/lib/libtoxcore.$(A)
+	TOXAV  = toxcore/build/$(DEST)/lib/libtoxav.$(A)
+	TOXDNS = toxcore/build/$(DEST)/lib/libtoxdns.$(A)
+	NACL   = libsodium/build/$(DEST)/lib/libsodium.$(A)
+
+	INC += -I./toxcore/build/$(DEST)/include
+else
+	INC   += -I. `pkg-config --cflags libtoxcore`
+	LIB_TOX = `pkg-config --libs libtoxcore`
+	LIB_TOXAV = `pkg-config --libs libtoxav`
+	## if x86_64
+	PIC  = -with-pic
+	LDFLAGS += -fPIC
+endif
+
+INC += -I. 
+
+CFLAGS += -std=c11
 CFLAGS += -fPIC -Wall -Wno-unused-variable -Wno-unused-function
-#CFLAGS += -O2
-CFLAGS += -g
+ifeq(${DEBUG},yes)
+	CFLAGS += -g
+else
+	CFLAGS += -O2
+endif
 CFLAGS += $(INC)
 
-LDFLAGS = -fPIC
+LTOX    = tox.$(SO)
+LTOXAV  = toxav.$(SO)
+LTOXDNS = toxdns.$(SO)
 
-LIBS1 = `pkg-config --libs libtoxcore`
-LIBS2 = `pkg-config --libs libtoxav`
+LTOX_O 	  = lua_tox.o lua_common.o
+LTOXAV_O  = lua_toxav.o lua_common.o
+LTOXDNS_O = lua_toxdns.o lua_common.o
 
-OBJS1 = lua_tox.o lua_common.o
-OBJS2 = lua_toxav.o lua_common.o
-OBJS3 = lua_toxdns.o lua_common.o
+all: $(LTOX) $(LTOXAV) $(LTOXDNS)
 
-TARGET1 = tox.so
-TARGET2 = toxav.so
-TARGET3 = toxdns.so
+$(NACL):
+	@echo "Building $(NACL)..."
+	@cd libsodium && autoreconf -if \
+		&& CC=$(CC) CXX=$(CXX) ./configure $(PIC) \
+			--host=$(HOST) \
+			--prefix=$(PWD)/libsodium/build/$(DEST) \
+		&& make install
 
-all: $(TARGET1) $(TARGET2) $(TARGET3)
+$(TOX): $(NACL)
+	@echo "Building $(TOX)..."
+	@cd toxcore && autoreconf -if \
+		&& CC=$(CC) CXX=$(CXX) ./configure $(PIC) \
+			--host=$(HOST) \
+			--prefix=$(PWD)/toxcore/build/$(DEST) \
+			--with-libsodium-libs=$(PWD)/libsodium/build/$(DEST)/lib \
+			--with-libsodium-headers=$(PWD)/libsodium/build/$(DEST)/include \
+		&& make install
 
 %.o: %.c
 	@echo "Compiling $@..."
-	@$(CC) $(CFLAGS) -o $@ -c $<
+	$(S)$(CC) $(CFLAGS) -o $@ -c $<
 
-$(TARGET1): $(OBJS1)
+$(LTOX): $(TOX) $(LTOX_O)
 	@echo "Linking $@..."
-	@$(LD) $(LDFLAGS) -shared -o $@ $(OBJS1) $(LIBS1)
+	$(S)$(LD) $(LDFLAGS) -shared -o $@ $(LTOX_O) $(STATIC_FLAGS) $(STATIC_TOX) $(LIB_TOX) $(LIBS) 
 	@$(STRIP) $@
 
-$(TARGET2): $(OBJS2)
+$(LTOXAV): $(TOXAV) $(LTOXAV_O)
 	@echo "Linking $@..."
-	@$(LD) $(LDFLAGS) -shared -o $@ $(OBJS2) $(LIBS2)
+	$(S)$(LD) $(LDFLAGS) -shared -o $@ $(LTOXAV_O) $(STATIC_FLAGS) $(STATIC_TOXAV) $(LIB_TOXAV) $(LIBS) 
 	@$(STRIP) $@
 
-$(TARGET3): $(OBJS3)
+$(LTOXDNS): $(TOXDNS) $(LTOXDNS_O)
 	@echo "Linking $@..."
-	@$(LD) $(LDFLAGS) -shared -o $@ $(OBJS3) $(LIBS1)
+	$(S)$(LD) $(LDFLAGS) -shared -o $@ $(LTOXDNS_O) $(STATIC_FLAGS) $(STATIC_TOXDNS) $(LIB_TOXDNS) $(LIBS)
 	@$(STRIP) $@
 
 test: all
@@ -61,7 +127,19 @@ test: all
 	@lua tests/test_toxdns.lua
 
 clean:
-	@$(RM) -f $(OBJS1) $(OBJS2) $(OBJS3)
+	@$(RM) -f $(LTOX_O) $(LTOXAV_O) $(LTOXDNS_O)
 
 extraclean: clean
-	@$(RM) -f $(TARGET1) $(TARGET2) $(TARGET3)
+	@$(RM) -f $(LTOX) $(LTOXAV) $(LTOXDNS)
+
+distclean: extraclean
+	@$(RM) -rf toxcore/build/lin
+	@$(RM) -rf toxcore/build/win
+	@$(RM) -rf toxcore/build/osx
+	@$(RM) -rf toxcore/build/ios
+	@$(RM) -rf toxcore/build/and
+	@$(RM) -rf libsodium/build/lin
+	@$(RM) -rf libsodium/build/win
+	@$(RM) -rf libsodium/build/osx
+	@$(RM) -rf libsodium/build/ios
+	@$(RM) -rf libsodium/build/and
