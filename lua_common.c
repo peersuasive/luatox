@@ -65,7 +65,7 @@ int set(lua_State* L, const void* key, const char* name, int index) {
         lua_pushvalue(L, n);
         lua_settable(L, i);
         lua_pop(L,1);
-        lua_remove(L, n);
+        //lua_remove(L, n); // NO
         res = 1;
     } else {
         printf("** set: couldn't get registry!!!\n");
