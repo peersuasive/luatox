@@ -1,0 +1,6 @@
+[submodule "toxcore"]
+	path = toxcore
+	url = https://github.com/irungentoo/toxcore.git
+[submodule "libsodium"]
+	path = libsodium
+	url = git://github.com/jedisct1/libsodium.git
