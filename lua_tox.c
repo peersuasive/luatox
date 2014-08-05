@@ -21,9 +21,8 @@
  *
  */
 
-#include <stdint.h>
-#include <stdio.h>
-#include <string.h>
+#include <stdlib.h> // malloc
+#include <string.h> // strcat, strlen, memcpy
 
 #include "lua_tox.h"
 
@@ -165,309 +164,469 @@ int throw_error(lua_State *L, int32_t err) {
  *                        *
  **************************/
 
-void on_friend_request(Tox *tox, const uint8_t *public_key, const uint8_t *data, uint16_t length, void *_ltox) {
-    LTox *ltox = (LTox*)_ltox;
+typedef struct _lobj {
+    LTox *ltox;
+    void *userdata;
+    size_t len;
+} LObj;
+LObj *createUserdata(lua_State *L, LTox *ltox, void *userdata, size_t len) {
+    LObj *l = (LObj*)malloc(sizeof(LObj));
+    l->userdata = userdata;
+    l->ltox = ltox;
+    l->len = len;
+
+    lua_pushlightuserdata(L, (void*)ltox->tox); // must exist, being registered with _new
+    lua_gettable(L, LUA_REGISTRYINDEX);
+    if (lua_isnil(L,-1))
+        luaL_error(L, "Can't get object table from registry -- not reg'ed ?");
+
+    lua_getfield(L, -1, "userdata");
+    if ( lua_isnil(L, -1) ) { // create new table
+        lua_pop(L,1); // nil
+        lua_createtable(L,0,20);
+        lua_setfield(L, -2, "userdata");
+        lua_getfield(L, -1, "userdata");
+    }
+    lua_pushlightuserdata(L, (void*)l);
+    lua_pushlightuserdata(L, (void*)l);
+    lua_settable(L,-3);
+    lua_pop(L,2); // table + registry
+    return l;
+}
+
+void on_friend_request(Tox *tox, const uint8_t *public_key, const uint8_t *data, uint16_t length, void *obj) {
+    LObj *lobj = (LObj*)obj;
+    LTox *ltox = lobj->ltox;
     if(ltox->callbacks.friend_request) {
         lua_pushlstring(Ls, (const char*)public_key, TOX_CLIENT_ID_SIZE);
         lua_pushlstring(Ls, (const char*)data, length);
-        call_cb(Ls, ltox, "friend_request", 0, 2);
+        lua_pushlstring(Ls, (const char*)lobj->userdata, lobj->len);
+        call_cb(Ls, ltox, "friend_request", 0, 3);
     }
 }
 int lua_tox_callback_friend_request(lua_State* L) {
     LTox *ltox = checkLTox(L,1);
     set(L, ltox, "friend_request", 2);
+    size_t len = 0;
+    void *userdata = NULL;
+    if(! lua_isnoneornil(L,3))
+        userdata = (void*)lua_tolstring(L,3, &len);
     lua_settop(L,0);
 
+    LObj *lobj = createUserdata(L, ltox, userdata, len);
+
     ltox->callbacks.friend_request = 1;
-    tox_callback_friend_request(ltox->tox, on_friend_request, ltox);
+    tox_callback_friend_request(ltox->tox, on_friend_request, lobj);
     return 0;
 }
 
-void on_friend_message(Tox *tox, int32_t friendnumber, const uint8_t *message, uint16_t length, void *_ltox) {
-    LTox *ltox = (LTox*)_ltox;
+void on_friend_message(Tox *tox, int32_t friendnumber, const uint8_t *message, uint16_t length, void *obj) {
+    LObj *lobj = (LObj*)obj;
+    LTox *ltox = lobj->ltox;
     if(ltox->callbacks.friend_message) {
         lua_pushnumber(Ls, friendnumber);
         lua_pushlstring(Ls, (const char*)message, length);
-        call_cb(Ls, ltox, "friend_message", 0, 2);
+        lua_pushlstring(Ls, (const char*)lobj->userdata, lobj->len);
+        call_cb(Ls, ltox, "friend_message", 0, 3);
     }
 }
 int lua_tox_callback_friend_message(lua_State* L) {
     LTox *ltox = checkLTox(L,1);
     set(L, ltox, "friend_message", 2);
+    size_t len = 0;
+    void *userdata = NULL;
+    if( ! lua_isnoneornil(L,3) )
+        userdata = (void*)lua_tolstring(L,3, &len);
     lua_settop(L,0);
 
+    LObj *lobj = createUserdata(L, ltox, userdata, len);
+
     ltox->callbacks.friend_message = 1;
-    tox_callback_friend_message(ltox->tox, on_friend_message, ltox);
+    tox_callback_friend_message(ltox->tox, on_friend_message, lobj);
     return 0;
 }
 
-void on_friend_action(Tox *tox, int32_t friendnumber, const uint8_t *action, uint16_t length, void *_ltox) {
-    LTox *ltox = (LTox*)_ltox;
+void on_friend_action(Tox *tox, int32_t friendnumber, const uint8_t *action, uint16_t length, void *obj) {
+    LObj *lobj = (LObj*)obj;
+    LTox *ltox = lobj->ltox;
     if(ltox->callbacks.friend_action) {
         lua_pushnumber(Ls, friendnumber);
         lua_pushlstring(Ls, (const char*)action, length);
-        call_cb(Ls, ltox, "friend_action", 0, 2);
+        lua_pushlstring(Ls, (const char*)lobj->userdata, lobj->len);
+        call_cb(Ls, ltox, "friend_action", 0, 3);
     }
 }
 int lua_tox_callback_friend_action(lua_State* L) {
     LTox *ltox = checkLTox(L,1);
     set(L, ltox, "friend_action", 2);
+    size_t len = 0;
+    void *userdata = NULL;
+    if( ! lua_isnoneornil(L,3) )
+        userdata = (void*)lua_tolstring(L,3, &len);
     lua_settop(L,0);
 
+    LObj *lobj = createUserdata(L, ltox, userdata, len);
+
     ltox->callbacks.friend_action = 1;
-    tox_callback_friend_action(ltox->tox, on_friend_action, ltox);
+    tox_callback_friend_action(ltox->tox, on_friend_action, lobj);
     return 0;
 }
 
-void on_name_change(Tox *tox, int32_t friendnumber, const uint8_t *string, uint16_t length, void *_ltox) {
-    LTox *ltox = (LTox*)_ltox;
+void on_name_change(Tox *tox, int32_t friendnumber, const uint8_t *string, uint16_t length, void *obj) {
+    LObj *lobj = (LObj*)obj;
+    LTox *ltox = lobj->ltox;
     if(ltox->callbacks.name_change) {
         lua_pushnumber(Ls, friendnumber);
         lua_pushlstring(Ls, (const char*)string, length);
-        call_cb(Ls, ltox, "name_change",0,2);
+        lua_pushlstring(Ls, (const char*)lobj->userdata, lobj->len);
+        call_cb(Ls, ltox, "name_change",0,3);
     }
 }
 int lua_tox_callback_name_change(lua_State* L) {
     LTox *ltox = checkLTox(L,1);
     set(L, ltox, "name_change", 2);
+    size_t len = 0;
+    void *userdata = NULL;
+    if( ! lua_isnoneornil(L,3) )
+        userdata = (void*)lua_tolstring(L,3, &len);
     lua_settop(L,0);
 
+    LObj *lobj = createUserdata(L, ltox, userdata, len);
+
     ltox->callbacks.name_change = 1;
-    tox_callback_name_change(ltox->tox, on_name_change, ltox);
+    tox_callback_name_change(ltox->tox, on_name_change, lobj);
     return 0;
 }
 
-void on_status_message(Tox *tox, int32_t friendnumber, const uint8_t *string, uint16_t length, void *_ltox) {
-    LTox *ltox = (LTox*)_ltox;
+void on_status_message(Tox *tox, int32_t friendnumber, const uint8_t *string, uint16_t length, void *obj) {
+    LObj *lobj = (LObj*)obj;
+    LTox *ltox = lobj->ltox;
     if(ltox->callbacks.status_message) {
         lua_pushnumber(Ls, friendnumber);
         lua_pushlstring(Ls, (const char*)string, length);
-        call_cb(Ls, ltox, "status_message", 0, 2);
+        lua_pushlstring(Ls, (const char*)lobj->userdata, lobj->len);
+        call_cb(Ls, ltox, "status_message", 0, 3);
     }
 }
 int lua_tox_callback_status_message(lua_State* L) {
     LTox *ltox = checkLTox(L,1);
     set(L, ltox, "status_message", 2);
+    size_t len = 0;
+    void *userdata = NULL;
+    if( ! lua_isnoneornil(L,3) )
+        userdata = (void*)lua_tolstring(L,3, &len);
     lua_settop(L,0);
 
+    LObj *lobj = createUserdata(L, ltox, userdata, len);
+
     ltox->callbacks.status_message = 1;
-    tox_callback_status_message(ltox->tox, on_status_message, ltox);
+    tox_callback_status_message(ltox->tox, on_status_message, lobj);
     return 0;
 }
 
-void on_user_status(Tox *tox, int32_t friendnumber, uint8_t status, void *_ltox) {
-    LTox *ltox = (LTox*)_ltox;
+void on_user_status(Tox *tox, int32_t friendnumber, uint8_t status, void *obj) {
+    LObj *lobj = (LObj*)obj;
+    LTox *ltox = lobj->ltox;
     if(ltox->callbacks.user_status) {
         lua_pushnumber(Ls, friendnumber);
         lua_pushnumber(Ls, status);
-        call_cb(Ls, ltox, "user_status", 0, 2);
+        lua_pushlstring(Ls, (const char*)lobj->userdata, lobj->len);
+        call_cb(Ls, ltox, "user_status", 0, 3);
     }
 }
 int lua_tox_callback_user_status(lua_State* L) {
     LTox *ltox = checkLTox(L,1);
     set(L, ltox, "user_status", 2);
+    size_t len = 0;
+    void *userdata = NULL;
+    if( ! lua_isnoneornil(L,3) )
+        userdata = (void*)lua_tolstring(L,3, &len);
     lua_settop(L,0);
 
+    LObj *lobj = createUserdata(L, ltox, userdata, len);
+
     ltox->callbacks.user_status = 1;
-    tox_callback_user_status(ltox->tox, on_user_status, ltox);
+    tox_callback_user_status(ltox->tox, on_user_status, lobj);
     return 0;
 }
 
-void on_typing_change(Tox *tox, int32_t friendnumber, uint8_t is_typing, void *_ltox) {
-    LTox *ltox = (LTox*)_ltox;
+void on_typing_change(Tox *tox, int32_t friendnumber, uint8_t is_typing, void *obj) {
+    LObj *lobj = (LObj*)obj;
+    LTox *ltox = lobj->ltox;
     if(ltox->callbacks.typing_change) {
         lua_pushnumber(Ls, friendnumber);
         lua_pushboolean(Ls, (is_typing==1));
-        call_cb(Ls, ltox, "typing_change", 0, 2);
+        lua_pushlstring(Ls, (const char*)lobj->userdata, lobj->len);
+        call_cb(Ls, ltox, "typing_change", 0, 3);
     }
 }
 int lua_tox_callback_typing_change(lua_State* L) {
     LTox *ltox = checkLTox(L,1);
     set(L, ltox, "typing_change", 2);
+    size_t len = 0;
+    void *userdata = NULL;
+    if( ! lua_isnoneornil(L,3) )
+        userdata = (void*)lua_tolstring(L,3, &len);
     lua_settop(L,0);
 
+    LObj *lobj = createUserdata(L, ltox, userdata, len);
+
     ltox->callbacks.typing_change = 1;
-    tox_callback_typing_change(ltox->tox, on_typing_change, ltox);
+    tox_callback_typing_change(ltox->tox, on_typing_change, lobj);
     return 0;
 }
 
-void on_read_receipt(Tox *tox, int32_t friendnumber, uint32_t receipt, void *_ltox) {
-    LTox *ltox = (LTox*)_ltox;
+void on_read_receipt(Tox *tox, int32_t friendnumber, uint32_t receipt, void *obj) {
+    LObj *lobj = (LObj*)obj;
+    LTox *ltox = lobj->ltox;
     if(ltox->callbacks.read_receipt) {
         lua_pushnumber(Ls, friendnumber);
         lua_pushnumber(Ls, receipt);
-        call_cb(Ls, ltox, "read_receipt", 0, 2);
+        lua_pushlstring(Ls, (const char*)lobj->userdata, lobj->len);
+        call_cb(Ls, ltox, "read_receipt", 0, 3);
     }
 }
 int lua_tox_callback_read_receipt(lua_State* L) {
     LTox *ltox = checkLTox(L,1);
     set(L, ltox, "read_receipt", 2);
+    size_t len = 0;
+    void *userdata = NULL;
+    if( ! lua_isnoneornil(L,3) )
+        userdata = (void*)lua_tolstring(L,3, &len);
     lua_settop(L,0);
 
+    LObj *lobj = createUserdata(L, ltox, userdata, len);
+
     ltox->callbacks.read_receipt = 1;
-    tox_callback_read_receipt(ltox->tox, on_read_receipt, ltox);
+    tox_callback_read_receipt(ltox->tox, on_read_receipt, lobj);
     return 0;
 }
 
-void on_connection_status(Tox *tox, int32_t friendnumber, uint8_t status, void *_ltox) {
-    LTox *ltox = (LTox*)_ltox;
+void on_connection_status(Tox *tox, int32_t friendnumber, uint8_t status, void *obj) {
+    LObj *lobj = (LObj*)obj;
+    LTox *ltox = lobj->ltox;
     if(ltox->callbacks.connection_status) {
         lua_pushnumber(Ls, friendnumber);
         lua_pushnumber(Ls, status);
-        call_cb(Ls, ltox, "connection_status", 0, 2);
+        lua_pushlstring(Ls, (const char*)lobj->userdata, lobj->len);
+        call_cb(Ls, ltox, "connection_status", 0, 3);
     }
 }
 int lua_tox_callback_connection_status(lua_State* L) {
     LTox *ltox = checkLTox(L,1);
     set(L, ltox, "connection_status", 2);
+    size_t len = 0;
+    void *userdata = NULL;
+    if( ! lua_isnoneornil(L,3) )
+        userdata = (void*)lua_tolstring(L,3, &len);
     lua_settop(L,0);
 
+    LObj *lobj = createUserdata(L, ltox, userdata, len);
+
     ltox->callbacks.connection_status = 1;
-    tox_callback_connection_status(ltox->tox, on_connection_status, ltox);
+    tox_callback_connection_status(ltox->tox, on_connection_status, lobj);
     return 0;
 }
 
-void on_group_invite(Tox *tox, int32_t friendnumber, const uint8_t *group_pub_key, void *_ltox)
-{
-    LTox *ltox = (LTox*)_ltox;
+void on_group_invite(Tox *tox, int32_t friendnumber, const uint8_t *group_pub_key, void *obj) {
+    LObj *lobj = (LObj*)obj;
+    LTox *ltox = lobj->ltox;
     if(ltox->callbacks.group_invite) {
         lua_pushnumber(Ls, friendnumber);
         lua_pushlstring(Ls, (const char*)group_pub_key, TOX_CLIENT_ID_SIZE);
-        call_cb(Ls, ltox, "group_invite", 0, 2);
+        lua_pushlstring(Ls, (const char*)lobj->userdata, lobj->len);
+        call_cb(Ls, ltox, "group_invite", 0, 3);
     }
 }
 int lua_tox_callback_group_invite(lua_State* L) {
     LTox *ltox = checkLTox(L,1);
     set(L, ltox, "group_invite", 2);
+    size_t len = 0;
+    void *userdata = NULL;
+    if( ! lua_isnoneornil(L,3) )
+        userdata = (void*)lua_tolstring(L,3, &len);
     lua_settop(L,0);
 
+    LObj *lobj = createUserdata(L, ltox, userdata, len);
+
     ltox->callbacks.group_invite = 1;
-    tox_callback_group_invite(ltox->tox, on_group_invite, ltox);
+    tox_callback_group_invite(ltox->tox, on_group_invite, lobj);
     return 0;
 }
 
-void on_group_message(Tox *tox, int groupnumber, int peernumber, const uint8_t *message, uint16_t length, void *_ltox)
-{
-    LTox *ltox = (LTox*)_ltox;
+void on_group_message(Tox *tox, int groupnumber, int peernumber, const uint8_t *message, uint16_t length, void *obj) {
+    LObj *lobj = (LObj*)obj;
+    LTox *ltox = lobj->ltox;
     if(ltox->callbacks.group_message) {
         lua_pushnumber(Ls, groupnumber);
         lua_pushnumber(Ls, peernumber);
         lua_pushlstring(Ls, (const char*)message, length);
-        call_cb(Ls, ltox, "group_message", 0, 3);
+        lua_pushlstring(Ls, (const char*)lobj->userdata, lobj->len);
+        call_cb(Ls, ltox, "group_message", 0, 4);
     }
 }
 int lua_tox_callback_group_message(lua_State* L) {
     LTox *ltox = checkLTox(L,1);
     set(L, ltox, "group_message", 2);
+    size_t len = 0;
+    void *userdata = NULL;
+    if( ! lua_isnoneornil(L,3) )
+        userdata = (void*)lua_tolstring(L,3, &len);
     lua_settop(L,0);
 
+    LObj *lobj = createUserdata(L, ltox, userdata, len);
+
     ltox->callbacks.group_message = 1;
-    tox_callback_group_message(ltox->tox, on_group_message, ltox);
+    tox_callback_group_message(ltox->tox, on_group_message, lobj);
     return 0;
 }
 
-void on_group_action(Tox *tox, int groupnumber, int peernumber, const uint8_t *action, uint16_t length, void *_ltox) 
+void on_group_action(Tox *tox, int groupnumber, int peernumber,
+        const uint8_t *action, uint16_t length, void *obj)
 {
-    LTox *ltox = (LTox*)_ltox;
+    LObj *lobj = (LObj*)obj;
+    LTox *ltox = lobj->ltox;
     if(ltox->callbacks.group_action) {
         lua_pushnumber(Ls, groupnumber);
         lua_pushnumber(Ls, peernumber);
         lua_pushlstring(Ls, (const char*)action, length);
-        call_cb(Ls, ltox, "group_action", 0, 3);
+        lua_pushlstring(Ls, (const char*)lobj->userdata, lobj->len);
+        call_cb(Ls, ltox, "group_action", 0, 4);
     }
 }
 int lua_tox_callback_group_action(lua_State* L) {
     LTox *ltox = checkLTox(L,1);
     set(L, ltox, "group_action", 2);
+    size_t len = 0;
+    void *userdata = NULL;
+    if( ! lua_isnoneornil(L,3) )
+        userdata = (void*)lua_tolstring(L,3, &len);
     lua_settop(L,0);
 
+    LObj *lobj = createUserdata(L, ltox, userdata, len);
+
     ltox->callbacks.group_action = 1;
-    tox_callback_group_action(ltox->tox, on_group_action, ltox);
+    tox_callback_group_action(ltox->tox, on_group_action, lobj);
     return 0;
 }
 
-void on_group_namelist_change(Tox *tox, int groupnumber, int peernumber, uint8_t change, void *_ltox) 
-{
-    LTox *ltox = (LTox*)_ltox;
+void on_group_namelist_change(Tox *tox, int groupnumber, int peernumber, uint8_t change, void *obj) {
+    LObj *lobj = (LObj*)obj;
+    LTox *ltox = lobj->ltox;
     if(ltox->callbacks.group_namelist_change) {
         lua_pushnumber(Ls, groupnumber);
         lua_pushnumber(Ls, peernumber);
         lua_pushnumber(Ls, change);
-        call_cb(Ls, ltox, "group_namelist_change", 0, 2);
+        lua_pushlstring(Ls, (const char*)lobj->userdata, lobj->len);
+        call_cb(Ls, ltox, "group_namelist_change", 0, 4);
     }
 }
 int lua_tox_callback_group_namelist_change(lua_State* L) {
     LTox *ltox = checkLTox(L,1);
     set(L, ltox, "group_namelist_change", 2);
+    size_t len = 0;
+    void *userdata = NULL;
+    if( ! lua_isnoneornil(L,3) )
+        userdata = (void*)lua_tolstring(L,3, &len);
     lua_settop(L,0);
 
+    LObj *lobj = createUserdata(L, ltox, userdata, len);
+
     ltox->callbacks.group_namelist_change = 1;
-    tox_callback_group_namelist_change(ltox->tox, on_group_namelist_change, ltox);
+    tox_callback_group_namelist_change(ltox->tox, on_group_namelist_change, lobj);
     return 0;
 }
 
 void on_file_send_request(Tox *tox, int32_t friendnumber, uint8_t filenumber, uint64_t filesize,
-                                 const uint8_t *filename, uint16_t filename_length, void *_ltox)
+        const uint8_t *filename, uint16_t filename_length, void *obj)
 {
-    LTox *ltox = (LTox*)_ltox;
+    LObj *lobj = (LObj*)obj;
+    LTox *ltox = lobj->ltox;
     if(ltox->callbacks.file_send_request) {
         lua_pushnumber(Ls, friendnumber);
         lua_pushnumber(Ls, filenumber);
         lua_pushnumber(Ls, filesize);
         lua_pushlstring(Ls, (const char*)filename, filename_length);
-        call_cb(Ls, ltox, "file_send_request", 0, 4);
+        lua_pushlstring(Ls, (const char*)lobj->userdata, lobj->len);
+        call_cb(Ls, ltox, "file_send_request", 0, 5);
     }
 }
 int lua_tox_callback_file_send_request(lua_State* L) {
     LTox *ltox = checkLTox(L,1);
     set(L, ltox, "file_send_request", 2);
+    size_t len = 0;
+    void *userdata = NULL;
+    if( ! lua_isnoneornil(L,3) )
+        userdata = (void*)lua_tolstring(L,3, &len);
     lua_settop(L,0);
 
+    LObj *lobj = createUserdata(L, ltox, userdata, len);
+
     ltox->callbacks.file_send_request = 1;
-    tox_callback_file_send_request(ltox->tox, on_file_send_request, ltox);
+    tox_callback_file_send_request(ltox->tox, on_file_send_request, lobj);
     return 0;
 }
 
-void on_file_control (Tox *tox, int32_t friendnumber, uint8_t send_receive, uint8_t filenumber,
-                              uint8_t control_type, const uint8_t *data, uint16_t length, void *_ltox)
+void on_file_control (Tox *tox, int32_t friendnumber, uint8_t send_receive, 
+        uint8_t filenumber, uint8_t control_type, const uint8_t *data, uint16_t length, void *obj)
 {
-    LTox *ltox = (LTox*)_ltox;
+    LObj *lobj = (LObj*)obj;
+    LTox *ltox = lobj->ltox;
+    void *userdata = lobj->userdata;
     if(ltox->callbacks.file_control) {
         lua_pushnumber(Ls, friendnumber);
         lua_pushnumber(Ls, send_receive); // reveiving == 1, sending == 0
         lua_pushnumber(Ls, filenumber);
         lua_pushnumber(Ls, control_type);
         lua_pushlstring(Ls, (const char*)data, length);
-        call_cb(Ls, ltox, "file_control", 0, 5);
+        lua_pushlstring(Ls, (const char*)lobj->userdata, lobj->len);
+        call_cb(Ls, ltox, "file_control", 0, 6);
     }
 }
 int lua_tox_callback_file_control(lua_State* L) {
     LTox *ltox = checkLTox(L,1);
     set(L, ltox, "file_control", 2);
+    size_t len = 0;
+    void *userdata = NULL;
+    if( ! lua_isnoneornil(L,3) )
+        userdata = (void*)lua_tolstring(L,3, &len);
     lua_settop(L,0);
 
+    LObj *lobj = createUserdata(L, ltox, userdata, len);
+
     ltox->callbacks.file_control = 1;
-    tox_callback_file_control(ltox->tox, on_file_control, ltox);
+    tox_callback_file_control(ltox->tox, on_file_control, lobj);
     return 0;
 }
 
-void on_file_data(Tox *tox, int32_t friendnumber, uint8_t filenumber, const uint8_t *data, uint16_t length, void *_ltox)
+void on_file_data(Tox *tox, int32_t friendnumber, uint8_t filenumber, const uint8_t *data, 
+        uint16_t length, void *obj)
 {
-    LTox *ltox = (LTox*)_ltox;
+    LObj *lobj = (LObj*)obj;
+    LTox *ltox = lobj->ltox;
+    size_t len = 0;
+    void *userdata = lobj->userdata;
     if(ltox->callbacks.file_data) {
         lua_pushnumber(Ls, friendnumber);
         lua_pushnumber(Ls, filenumber);
         lua_pushlstring(Ls, (const char*)data, length);
-        call_cb(Ls, ltox, "file_data", 0, 3);
+        lua_pushlstring(Ls, (const char*)lobj->userdata, lobj->len);
+        call_cb(Ls, ltox, "file_data", 0, 4);
     }
 }
 int lua_tox_callback_file_data(lua_State* L) {
     LTox *ltox = checkLTox(L,1);
     set(L, ltox, "file_data", 2);
+    size_t len = 0;
+    void *userdata = NULL;
+    if( ! lua_isnoneornil(L,3) )
+        userdata = (void*)lua_tolstring(L,3, &len);
     lua_settop(L,0);
 
+    LObj *lobj = createUserdata(L, ltox, userdata, len);
+
     ltox->callbacks.file_data = 1;
-    tox_callback_file_data(ltox->tox, on_file_data, ltox);
+    tox_callback_file_data(ltox->tox, on_file_data, lobj);
     return 0;
 }
 
@@ -1127,8 +1286,10 @@ int lua_tox_file_send_control(lua_State* L) {
     uint8_t send_receive = luaL_checknumber(L, 3);
     uint8_t filenumber = luaL_checknumber(L, 4);
     uint8_t message_id = luaL_checknumber(L, 5);
-    size_t len;
-    uint8_t *data = (uint8_t*)lua_tolstring(L, 6, &len);
+    size_t len = 0;
+    uint8_t *data = NULL;
+    if(! lua_isnoneornil(L,6))
+        data = (uint8_t*)lua_tolstring(L, 6, &len);
     lua_settop(L,0);
 
     int r = tox_file_send_control(tox, friendnumber, send_receive, filenumber, message_id, data, len);
@@ -1253,6 +1414,26 @@ int lua_tox_gc(lua_State* L) {
     // segfault anyway
     Tox *tox = checkTox(L,1);
     lua_settop(L,0);
+
+    // get associated table
+    lua_pushlightuserdata(L, (void*)tox);
+    lua_gettable(L, LUA_REGISTRYINDEX);
+    if(! lua_isnil(L,-1)) {
+        // free callbacks datum
+        lua_getfield(L, -1, "userdata");
+        if ( ! lua_isnil(L, -1) ) {
+            lua_pushnil(L);
+            while(lua_next(L, -2)) {
+                LObj *obj = (LObj*)lua_topointer(L,-1);
+                if(obj)
+                    free(obj);
+                lua_pushnil(L);
+                lua_rawset(L, -4);
+            }
+        }
+        lua_pop(L,1);
+    }
+
     if(tox!=NULL)
         tox_kill( tox );
     return 0;
@@ -1293,6 +1474,7 @@ int lua_tox_new(lua_State* L) {
     ltox->callbacks.file_data = 0;
 
     reg(L, ltox);
+    reg(L, ltox->tox);
     return 1;
 }
 

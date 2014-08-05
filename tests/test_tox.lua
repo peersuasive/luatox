@@ -29,7 +29,10 @@ local tox  = Tox()
 local tox2 = Tox()
 local tox3 = Tox()
 
-local function accept_friend_request(pub, data)
+local to_compare = 974536
+
+local function accept_friend_request(pub, data, userdata)
+    print("to compare: '"..(userdata or "nil").."'", #userdata)
     if (#data == 6) and ("Gentoo"==data) then
         local req, err = tox2:addFriendNorequest(pub)
         if not(req)then
@@ -49,7 +52,7 @@ end
 local function test_add_friends()
     print"******** ADD FRIENDS *********"
 
-    tox2:callbackFriendRequest(accept_friend_request)
+    tox2:callbackFriendRequest(accept_friend_request, to_compare)
 
     local address = tox2:getAddress()
 
@@ -81,7 +84,7 @@ local function test_send_message()
     print"******** SEND MESSAGE ********"
 
     local messages_received = nil
-    local function print_message(friendnumber, string)
+    local function print_message(friendnumber, string, userdata)
         if("G"==string)then
             messages_received = 1
         else
@@ -89,7 +92,7 @@ local function test_send_message()
         end
     end
 
-    tox3:callbackFriendMessage(print_message)
+    tox3:callbackFriendMessage(print_message, to_compare)
     local size = tox2:sendMessage(0, "G")
     assert(size, "FAILED: Friend doesn't exist!" )
 
@@ -109,7 +112,7 @@ end
 local function test_name_change()
     print"******** CHANGE NAME *********"
     local name_changes = false
-    local function print_nickchange(friendnumber, string)
+    local function print_nickchange(friendnumber, string, userdata)
         if("Gentoo"==string)then
             name_changes = true
         else
@@ -117,7 +120,7 @@ local function test_name_change()
         end
     end
 
-    tox3:callbackNameChange(print_nickchange)
+    tox3:callbackNameChange(print_nickchange, to_compare)
     assert( tox2:setName("Gentoo"), "FAILED: can't to set name")
 
     while true do
@@ -140,14 +143,14 @@ end
 local function test_is_typing()
     print"******** IS TYPING ***********"
     local typing_changes = 0
-    local function print_typingchange(friendnumber, is_typing)
+    local function print_typingchange(friendnumber, is_typing, userdata)
         if(is_typing)then
             typing_changes = 2
         else
             typing_changes = 1
         end
     end
-    tox2:callbackTypingChange(print_typingchange);
+    tox2:callbackTypingChange(print_typingchange, to_compare)
 
     assert(tox3:setUserIsTyping(0, true), "FAILED: is typing: can't change status")
     while true do
@@ -179,7 +182,7 @@ local function test_is_typing()
 end
 
 local size_recv, num = 0, 0
-local function write_file(friendnumber, filenumber, data)
+local function write_file(friendnumber, filenumber, data, userdata)
     local f_data = string.rep(string.char(num), #data)
 
     if(#f_data==#data)and(f_data==data)then
@@ -193,7 +196,7 @@ local function write_file(friendnumber, filenumber, data)
 end
 
 local file_sent, sendf_ok = 0, 0
-local function file_print_control(friendnumber, send_receive, filenumber, control_type, data)
+local function file_print_control(friendnumber, send_receive, filenumber, control_type, data, userdata)
     if (send_receive == 0) and (control_type == Tox.control.FINISHED) then
         tox3:fileSendControl(friendnumber, 1, filenumber, Tox.control.FINISHED)
         file_sent = 1
@@ -205,7 +208,7 @@ local function file_print_control(friendnumber, send_receive, filenumber, contro
 end
 
 local filenum, file_accepted, file_size = 0, 0, 0
-local function file_request_accept(friendnumber, filenumber, filesize, filename)
+local function file_request_accept(friendnumber, filenumber, filesize, filename, userdata)
     local pat = "Gentoo.exe"
     if (#pat == #filename) and (pat==filename) then
         file_accepted = file_accepted + 1
@@ -232,9 +235,9 @@ local function test_send_file()
     size_recv = 0
 
     tox3:callbackFileData(write_file)
-    tox2:callbackFileControl(file_print_control)
-    tox3:callbackFileControl(file_print_control)
-    tox3:callbackFileSendRequest(file_request_accept)
+    tox2:callbackFileControl(file_print_control, to_compare)
+    tox3:callbackFileControl(file_print_control, to_compare)
+    tox3:callbackFileSendRequest(file_request_accept, to_compare)
 
     local totalf_size = 100 * 1024 * 1024
     local fnum = tox2:newFileSender(0, totalf_size, "Gentoo.exe")
@@ -303,7 +306,7 @@ local function test_many_clients()
     for i=1, NUM_TOXES do
         local tox = Tox()
         assert(tox, string.format("failed to create tox instance %d", i))
-        tox:callbackFriendRequest(accept_friend_request)
+        tox:callbackFriendRequest(accept_friend_request, to_compare)
         toxes[#toxes+1] = tox
     end
 
