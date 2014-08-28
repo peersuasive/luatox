@@ -891,29 +891,6 @@ int lua_tox_send_message(lua_State* L) {
     return 1;
 }
 
-int lua_tox_send_message_withid(lua_State* L) {
-    Tox *tox = checkTox(L,1);
-    int32_t friendnumber = luaL_checknumber(L,2);
-    uint32_t theid = luaL_checknumber(L,3);
-    size_t len;
-    uint8_t *message = (uint8_t*)luaL_checklstring(L,4,&len);
-    lua_settop(L,0);
-    if( len > TOX_MAX_MESSAGE_LENGTH ) {
-        lua_pushnil(L);
-        lua_pushfstring(L, "Message too long (%lu > %d).", len, TOX_MAX_MESSAGE_LENGTH);
-        return 2;
-    }
-
-    int r = tox_send_message_withid(tox, friendnumber, theid, message, len);
-    if(r==0) {
-        lua_pushnil(L);
-        lua_pushliteral(L, "Unknown error.");
-        return 2;
-    }
-    lua_pushnumber(L,r);
-    return 1;
-}
-
 int lua_tox_send_action(lua_State* L) {
     Tox *tox = checkTox(L,1);
     int32_t friendnumber = luaL_checknumber(L,2);
@@ -926,29 +903,6 @@ int lua_tox_send_action(lua_State* L) {
         return 2;
     }
     int r = tox_send_action(tox, friendnumber, action, len);
-    if(r==0) {
-        lua_pushnil(L);
-        lua_pushliteral(L, "Unknown error.");
-        return 2;
-    }
-    lua_pushnumber(L,r);
-    return 1;
-}
-
-int lua_tox_send_action_withid(lua_State* L) {
-    Tox *tox = checkTox(L,1);
-    int32_t friendnumber = luaL_checknumber(L,2);
-    uint32_t theid = luaL_checknumber(L,3);
-    size_t len;
-    uint8_t *action = (uint8_t*)luaL_checklstring(L,4,&len);
-    lua_settop(L,0);
-    if( len > TOX_MAX_MESSAGE_LENGTH ) {
-        lua_pushnil(L);
-        lua_pushfstring(L, "Message too long (%lu > %d).", len, TOX_MAX_MESSAGE_LENGTH);
-        return 2;
-    }
-
-    int r = tox_send_action_withid(tox, friendnumber, theid, action, len);
     if(r==0) {
         lua_pushnil(L);
         lua_pushliteral(L, "Unknown error.");
@@ -1575,9 +1529,7 @@ static const luaL_Reg tox_methods[] = {
     {"isOnline", lua_tox_get_friend_connection_status},
     {"friendExists", lua_tox_friend_exists},
     {"sendMessage", lua_tox_send_message},
-    {"sendMessageWithid", lua_tox_send_message_withid},
     {"sendAction", lua_tox_send_action},
-    {"sendActionWithid", lua_tox_send_action_withid},
     {"setName", lua_tox_set_name},
     {"getSelfName", lua_tox_get_self_name},
     {"getName", lua_tox_get_name},
