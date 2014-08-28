@@ -133,7 +133,6 @@ int lua_tox_get_self_user_status(lua_State*);
 int lua_tox_get_last_online(lua_State*);
 int lua_tox_set_user_is_typing(lua_State*);
 int lua_tox_get_is_typing(lua_State*);
-int lua_tox_set_sends_receipts(lua_State*);
 int lua_tox_count_friendlist(lua_State*);
 int lua_tox_get_num_online_friends(lua_State*);
 int lua_tox_get_friendlist(lua_State*);
