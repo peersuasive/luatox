@@ -38,7 +38,7 @@ ifeq (${STATIC},yes)
 
 	STATIC_TOXDNS = -Wl,-Bstatic -ltoxdns $(STATIC_TOX)
 
-	LIBS  = -Wl,-Bdynamic -lm
+	LIBS  = -Wl,-Bdynamic -lm -lrt
 	#LIB_TOX = -lsodium
 	LIB_TOXAV = -Wl,-Bdynamic -lopus -lvpx
 
@@ -57,12 +57,12 @@ else
 	LIB_TOXAV = `pkg-config --libs libtoxav`
 	## if x86_64
 	PIC  = -with-pic
-	LDFLAGS += -fPIC
+	LDFLAGS += -fPIC -lrt
 endif
 
 INC += -I. 
 
-CFLAGS += -std=c11
+CFLAGS += -std=c99
 CFLAGS += -fPIC -Wall -Wno-unused-variable -Wno-unused-function
 ifeq (${DEBUG},yes)
 	CFLAGS += -g

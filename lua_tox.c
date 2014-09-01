@@ -36,6 +36,93 @@ extern "C" {
  *                        *
  **************************/
 
+
+
+static int checkToxOptions(lua_State* L, int index, Tox_Options *op) {
+    op->ipv6enabled = TOX_ENABLE_IPV6_DEFAULT;
+    op->udp_disabled = 0;
+    op->proxy_enabled = 0;
+    op->proxy_address[0] = '\0';
+    op->proxy_port = 0;
+
+    if (lua_gettop(L) < index || lua_isnil(L, index))
+        return 0;   /* Default options */
+
+    luaL_checktype(L, index, LUA_TTABLE);
+
+    lua_pushstring(L, "ipv6enabled");
+    lua_gettable(L, index);
+    if (!lua_isnil(L, -1)) {
+        if (lua_type(L, -1) != LUA_TBOOLEAN) {
+            lua_pop(L, 1);
+            lua_pushstring(L, "Option 'ipv6enabled' must be a boolean");
+            return lua_error(L);
+        }
+        op->ipv6enabled = lua_toboolean(L, -1);
+    }
+    lua_pop(L, 1);
+
+    lua_pushstring(L, "udp_disabled");
+    lua_gettable(L, index);
+    if (!lua_isnil(L, -1)) {
+        if (lua_type(L, -1) != LUA_TBOOLEAN) {
+            lua_pop(L, 1);
+            lua_pushstring(L, "Option 'udp_disabled' must be a boolean");
+            return lua_error(L);
+        }
+        op->udp_disabled = lua_toboolean(L, -1);
+    }
+    lua_pop(L, 1);
+
+    lua_pushstring(L, "proxy_enabled");
+    lua_gettable(L, index);
+    if (!lua_isnil(L, -1)) {
+        if (lua_type(L, -1) != LUA_TBOOLEAN) {
+            lua_pop(L, 1);
+            lua_pushstring(L, "Option 'proxy_enabled' must be a boolean");
+            return lua_error(L);
+        }
+        op->proxy_enabled = lua_toboolean(L, -1);
+    }
+    lua_pop(L, 1);
+
+    lua_pushstring(L, "proxy_port");
+    lua_gettable(L, index);
+    if (!lua_isnil(L, -1)) {
+        if (lua_type(L, -1) != LUA_TNUMBER) {
+            lua_pop(L, 1);
+            lua_pushstring(L, "Option 'proxy_port' must be an integer");
+            return lua_error(L);
+        }
+        op->proxy_port = lua_tointeger(L, -1);
+    }
+    lua_pop(L, 1);
+
+
+    lua_pushstring(L, "proxy_address");
+    lua_gettable(L, index);
+    if (!lua_isnil(L, -1)) {
+        if (lua_type(L, -1) != LUA_TSTRING) {
+            lua_pop(L, 1);
+            lua_pushstring(L, "Option 'proxy_address' must be a string");
+            return lua_error(L);
+        }
+        size_t len;
+        const char *str = lua_tolstring(L, -1, &len);
+        if (sizeof(op->proxy_address) <= len) {
+            lua_pop(L, 1);
+            lua_pushstring(L, "Proxy address too long");
+            return lua_error(L);
+        }
+        memcpy(op->proxy_address, str, len);
+        op->proxy_address[sizeof(op->proxy_address)-1] = '\0';
+    }
+    lua_pop(L, 1);
+
+    return 0;   /* ok */
+}
+
+
 static Tox *toTox(lua_State* L, int index) {
     Tox *tox = (Tox*)lua_touserdata(L, index);
     if(tox==NULL)
@@ -59,9 +146,9 @@ static LTox *checkLTox(lua_State* L, int index) {
     return ltox;
 }
 
-static LTox *pushTox(lua_State* L, uint8_t ipv6enabled) {
+static LTox *pushTox(lua_State* L, Tox_Options *op) {
     LTox *ltox = (LTox*)lua_newuserdata(L, sizeof(LTox));
-    ltox->tox = tox_new(ipv6enabled);
+    ltox->tox = tox_new(op);
     if(ltox->tox==NULL) {
         lua_pushliteral(L, "Can't create new tox!");
         lua_error(L);
@@ -804,29 +891,6 @@ int lua_tox_send_message(lua_State* L) {
     return 1;
 }
 
-int lua_tox_send_message_withid(lua_State* L) {
-    Tox *tox = checkTox(L,1);
-    int32_t friendnumber = luaL_checknumber(L,2);
-    uint32_t theid = luaL_checknumber(L,3);
-    size_t len;
-    uint8_t *message = (uint8_t*)luaL_checklstring(L,4,&len);
-    lua_settop(L,0);
-    if( len > TOX_MAX_MESSAGE_LENGTH ) {
-        lua_pushnil(L);
-        lua_pushfstring(L, "Message too long (%lu > %d).", len, TOX_MAX_MESSAGE_LENGTH);
-        return 2;
-    }
-
-    int r = tox_send_message_withid(tox, friendnumber, theid, message, len);
-    if(r==0) {
-        lua_pushnil(L);
-        lua_pushliteral(L, "Unknown error.");
-        return 2;
-    }
-    lua_pushnumber(L,r);
-    return 1;
-}
-
 int lua_tox_send_action(lua_State* L) {
     Tox *tox = checkTox(L,1);
     int32_t friendnumber = luaL_checknumber(L,2);
@@ -839,29 +903,6 @@ int lua_tox_send_action(lua_State* L) {
         return 2;
     }
     int r = tox_send_action(tox, friendnumber, action, len);
-    if(r==0) {
-        lua_pushnil(L);
-        lua_pushliteral(L, "Unknown error.");
-        return 2;
-    }
-    lua_pushnumber(L,r);
-    return 1;
-}
-
-int lua_tox_send_action_withid(lua_State* L) {
-    Tox *tox = checkTox(L,1);
-    int32_t friendnumber = luaL_checknumber(L,2);
-    uint32_t theid = luaL_checknumber(L,3);
-    size_t len;
-    uint8_t *action = (uint8_t*)luaL_checklstring(L,4,&len);
-    lua_settop(L,0);
-    if( len > TOX_MAX_MESSAGE_LENGTH ) {
-        lua_pushnil(L);
-        lua_pushfstring(L, "Message too long (%lu > %d).", len, TOX_MAX_MESSAGE_LENGTH);
-        return 2;
-    }
-
-    int r = tox_send_action_withid(tox, friendnumber, theid, action, len);
     if(r==0) {
         lua_pushnil(L);
         lua_pushliteral(L, "Unknown error.");
@@ -1061,15 +1102,6 @@ int lua_tox_get_is_typing(lua_State* L) {
     int r = tox_get_is_typing(tox,friendnumber);
     lua_pushboolean(L, r);
     return 1;
-}
-
-int lua_tox_set_sends_receipts(lua_State* L) {
-    Tox *tox = checkTox(L,1);
-    int32_t friendnumber = luaL_checknumber(L,2);
-    int yesno = lua_toboolean(L,3);
-    lua_settop(L,0);
-    tox_set_sends_receipts(tox, friendnumber, yesno);
-    return 0;
 }
 
 int lua_tox_count_friendlist(lua_State* L) {
@@ -1340,11 +1372,11 @@ int lua_tox_file_data_remaining(lua_State* L) {
 int lua_tox_bootstrap_from_address(lua_State* L) {
     Tox *tox = checkTox(L,1);
     const char *address = luaL_checkstring(L,2);
-    uint8_t ipv6enabled = luaL_checknumber(L,3);
-    uint16_t port = luaL_checknumber(L,4);
-    uint8_t *public_key = (uint8_t*)luaL_checkstring(L, 5);
+    uint16_t port = luaL_checknumber(L,3);
+    uint8_t *public_key = (uint8_t*)luaL_checkstring(L, 4);
     lua_settop(L,0);
-    int r = tox_bootstrap_from_address(tox, address, ipv6enabled, port, public_key);
+    /* TODO: Should we validate public_key length here? */
+    int r = tox_bootstrap_from_address(tox, address, port, public_key);
     lua_pushboolean(L, (r==1));
     return 1;
 }
@@ -1446,16 +1478,11 @@ static int lua_tox_tostring(lua_State* L) {
     return 1;
 }
 
-int lua_tox_new(lua_State* L) {
-    uint8_t ipv6enabled;
-    if(lua_isnumber(L,1)) {
-        ipv6enabled = (uint8_t)lua_tonumber(L,1);
-    }
-    else
-        ipv6enabled = TOX_ENABLE_IPV6_DEFAULT;
-    lua_settop(L,0);
+static void ltox_init(lua_State *L, int index) {
+    Tox_Options op;
+    checkToxOptions(L, index, &op);
 
-    LTox *ltox = pushTox(L, ipv6enabled);
+    LTox *ltox = pushTox(L, &op);
     ltox->callbacks.friend_request = 0;
     ltox->callbacks.friend_message = 0;
     ltox->callbacks.friend_action = 0;
@@ -1475,6 +1502,15 @@ int lua_tox_new(lua_State* L) {
 
     reg(L, ltox);
     reg(L, ltox->tox);
+}
+
+int lua_tox_new(lua_State* L) {
+    ltox_init(L, 1);
+    return 1;
+}
+
+static int lua_tox_new_meta(lua_State* L) {
+    ltox_init(L, 2);
     return 1;
 }
 
@@ -1493,9 +1529,7 @@ static const luaL_Reg tox_methods[] = {
     {"isOnline", lua_tox_get_friend_connection_status},
     {"friendExists", lua_tox_friend_exists},
     {"sendMessage", lua_tox_send_message},
-    {"sendMessageWithid", lua_tox_send_message_withid},
     {"sendAction", lua_tox_send_action},
-    {"sendActionWithid", lua_tox_send_action_withid},
     {"setName", lua_tox_set_name},
     {"getSelfName", lua_tox_get_self_name},
     {"getName", lua_tox_get_name},
@@ -1512,7 +1546,6 @@ static const luaL_Reg tox_methods[] = {
     {"getLastOnline", lua_tox_get_last_online},
     {"setUserIsTyping", lua_tox_set_user_is_typing},
     {"getIsTyping", lua_tox_get_is_typing},
-    {"setSendsReceipts", lua_tox_set_sends_receipts},
     {"countFriendlist", lua_tox_count_friendlist},
     {"getNumOnlineFriends", lua_tox_get_num_online_friends},
     {"getFriendlist", lua_tox_get_friendlist},
@@ -1570,7 +1603,7 @@ static const luaL_Reg tox_meta[] = {
 
 #define TOX_CLASS "ToxClass"
 static const luaL_Reg class_meta[] = {
-    {"__call", lua_tox_new},
+    {"__call", lua_tox_new_meta},
     {NULL,NULL}
 };
 
