@@ -51,6 +51,9 @@ ifeq (${STATIC},yes)
 	NACL   = libsodium/build/$(DEST)/lib/libsodium.$(A)
 
 	INC += -I./toxcore/build/$(DEST)/include
+	DO_TOX = ./toxcore/toxcore/tox.h
+	DO_TOXAV = ./toxcore/toxav/toxav.h
+	DO_TOXDNS = ./toxcore/toxdns/toxdns.h
 else
 	INC   += -I. `pkg-config --cflags libtoxcore`
 	LIB_TOX = `pkg-config --libs libtoxcore`
@@ -89,7 +92,7 @@ $(NACL):
 			--prefix=$(PWD)/libsodium/build/$(DEST) \
 		&& make install
 
-$(TOX): $(NACL)
+$(TOX): $(NACL) $(DO_TOX)
 	@echo "Building $(TOX)..."
 	@cd toxcore && autoreconf -if \
 		&& CC=$(CC) CXX=$(CXX) ./configure $(PIC) \
@@ -108,12 +111,12 @@ $(LTOX): $(TOX) $(LTOX_O)
 	$(S)$(LD) $(LDFLAGS) -shared -o $@ $(LTOX_O) $(STATIC_FLAGS) $(STATIC_TOX) $(LIB_TOX) $(LIBS) 
 	@$(STRIP) $@
 
-$(LTOXAV): $(TOXAV) $(LTOXAV_O)
+$(LTOXAV): $(TOXAV) $(LTOXAV_O) $(DO_TOXAV)
 	@echo "Linking $@..."
 	$(S)$(LD) $(LDFLAGS) -shared -o $@ $(LTOXAV_O) $(STATIC_FLAGS) $(STATIC_TOXAV) $(LIB_TOXAV) $(LIBS) 
 	@$(STRIP) $@
 
-$(LTOXDNS): $(TOXDNS) $(LTOXDNS_O)
+$(LTOXDNS): $(TOXDNS) $(LTOXDNS_O) $(DO_TOXDNS)
 	@echo "Linking $@..."
 	$(S)$(LD) $(LDFLAGS) -shared -o $@ $(LTOXDNS_O) $(STATIC_FLAGS) $(STATIC_TOXDNS) $(LIB_TOXDNS) $(LIBS)
 	@$(STRIP) $@
@@ -127,6 +130,7 @@ test: all
 	@lua tests/test_toxdns.lua
 
 clean:
+	@echo Cleaning...
 	@$(RM) -f $(LTOX_O) $(LTOXAV_O) $(LTOXDNS_O)
 
 extraclean: clean
