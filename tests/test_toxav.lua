@@ -30,9 +30,9 @@ local function c_sleep(n)
     os.execute("sleep "..tostring(n/1000))
 end
 
-local bootstrap_node = Tox(0);
-local Alice = Tox(0);
-local Bob = Tox(0);
+local bootstrap_node = Tox{ipv6enabled=false};
+local Alice = Tox{ipv6enabled=false}
+local Bob = Tox{ipv6enabled=false}
 print("Alice:", Alice)
 print("Bob:", Bob)
 
@@ -41,7 +41,7 @@ local to_compare = "abcdefgh"
 assert(bootstrap_node and Alice and Bob, "Failed to create 3 tox instances");
 
 local function test_cb()
-    local tx = Tox(0)
+    local tx = Tox{ipv6enabled=false}
     local av = ToxAv(tx, 1),
     print("registering callbacks")
     av:registerCallback( function()end, ToxAv.cb.OnStart )
@@ -56,6 +56,9 @@ local function test_cb()
     av:registerCallback( function()end, ToxAv.cb.OnMediaChange )
     av:registerRecvAudio( function()end )
     av:registerRecvVideo( function()end )
+    av:kill()
+    tx:kill()
+    tx = nil
 end
 
 local function test_init()
