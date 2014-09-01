@@ -988,8 +988,10 @@ int lua_toxav_gc(lua_State* L) {
     // clear registry
     unreg(L, lav);
 
-    if(lav->av!=NULL)
+    if(lav->av!=NULL) {
         toxav_kill( lav->av );
+        lav->av = NULL;
+    }
 
     return 0;
 }
@@ -1072,6 +1074,8 @@ static const luaL_Reg toxav_methods[] = {
     {"registerRecvAudio", lua_toxav_audio_recv_callback},
     {"registerRecvVideo", lua_toxav_video_recv_callback},
     
+    {"kill", lua_toxav_gc},
+
     {NULL, NULL}
 };
 

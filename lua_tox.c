@@ -1431,7 +1431,6 @@ int lua_tox_load(lua_State* L) {
 }
 
 //int lua_tox_new(lua_State* L);
-
 //int lua_tox_kill(lua_State* L);
 
 /************************************
@@ -1441,10 +1440,13 @@ int lua_tox_load(lua_State* L) {
  ************************************/
 
 int lua_tox_gc(lua_State* L) {
-    // not sure how it works yet
-    // maybe because of an error with using lua userdata ?
-    // segfault anyway
-    Tox *tox = checkTox(L,1);
+    LTox *ltox = (LTox*)lua_touserdata(L, 1);
+    if (ltox == NULL)
+        return 0;
+    Tox *tox = ltox->tox;
+    if (tox == NULL)
+        return 0;
+
     lua_settop(L,0);
 
     // get associated table
@@ -1465,9 +1467,14 @@ int lua_tox_gc(lua_State* L) {
         }
         lua_pop(L,1);
     }
+    lua_pop(L,1);
 
-    if(tox!=NULL)
+    unreg(L, ltox);
+    unreg(L, tox);
+    if(tox!=NULL) {
         tox_kill( tox );
+        ltox->tox = NULL;
+    }
     return 0;
 }
 
@@ -1592,6 +1599,7 @@ static const luaL_Reg tox_methods[] = {
     {"save", lua_tox_save},
     {"load", lua_tox_load},
 
+    {"kill", lua_tox_gc},
     {NULL,NULL}
 };
 
