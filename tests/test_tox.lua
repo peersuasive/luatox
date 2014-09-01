@@ -25,11 +25,54 @@
 local Tox = require"tox"
 
 -- init
-local tox  = Tox()
-local tox2 = Tox()
-local tox3 = Tox()
+local tox  = nil
+local tox2 = nil
+local tox3 = nil
+
+local t_test1 = nil
 
 local to_compare = 974536
+
+local function test_init()
+    tox  = assert(Tox{ipv6enabled=false})
+    tox2 = assert(Tox{ipv6enabled=false})
+    tox3 = assert(Tox{ipv6enabled=false})
+end
+
+local function test_init_wo_args()
+    local t, err = Tox()
+    assert( tostring(t):match("^Tox %(0x"), 
+        "Failed to initialise Tox w/o parameters: " .. (tostring(t or "<no msg>")) )
+    print "PASSED: init w/o args"
+    t:kill()
+    t = nil
+end
+
+local function test_init_w_args()
+    local function o_assert(opt, val)
+        local res, t, err = pcall(Tox, {[opt]=val})
+        assert( res and tostring(t):match("^Tox %(0x"), string.format(
+                "Failed to initialise Tox with %s = %s: %s\n",
+                opt, tostring(val),
+                (tostring(t or "<no msg>")) 
+            )
+        )
+        t:kill()
+        t = nil
+    end
+    o_assert( "ipv6enabled", true )
+    o_assert( "udp_disabled", true )
+    o_assert( "proxy_address", "127.0.0.1" )
+    o_assert( "proxy_port", 1024 )
+
+    local res,t = pcall(Tox, { proxy_address = "127.0.0.1", proxy_port = 1024, proxy_enabled = true })
+    assert( res and tostring(t):match("^Tox %(0x"), string.format( "Failed to initialise Tox with a proxy: %s\n",
+                (tostring(t or "<no msg>")) ) )
+
+    t:kill()
+    t=nil
+    print "PASSED: init with options"
+end
 
 local function accept_friend_request(pub, data, userdata)
     print("to compare: '"..(userdata or "nil").."'", #userdata)
@@ -384,6 +427,11 @@ local function test_many_clients()
     print("test_many_clients succeeded")
 end
 
+
+test_init_wo_args()
+test_init_w_args()
+
+test_init()
 
 test_add_friends()
 test_send_message()
